@@ -1,0 +1,24 @@
+{
+  "name": "campus-placement-intelligence-system",
+  "version": "1.0.0",
+  "description": "AI-Powered Campus Placement Intelligence System",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:ml": "cd ml-service && py -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload",
+    "create-admin": "npm --prefix backend run create-admin",
+    "create-officer": "npm --prefix backend run create-officer",
+    "build:frontend": "npm --prefix frontend run build"
+  },
+  "keywords": [
+    "campus-placement",
+    "ai",
+    "resume-parser",
+    "scikit-learn",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "MIT"
+}
