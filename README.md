@@ -1,6 +1,6 @@
 # AI-Powered Campus Placement Intelligence System
 
-A full-stack web application combining full-stack web development with authentic, open-source AI/ML functionality to streamline campus recruitment for **Students**, **Recruiters**, **Placement Officers**, and **Administrators**.
+A production-ready, full-stack recruitment and placement governance platform combining an editorial user experience with authentic, deterministic AI/ML intelligence. Designed for institutional scale, the system serves four primary stakeholder roles: **Students**, **Recruiters**, **Placement Officers**, and **Platform Administrators**.
 
 ---
 
@@ -8,244 +8,262 @@ A full-stack web application combining full-stack web development with authentic
 
 ```mermaid
 flowchart TD
-    User["Student / Recruiter / Placement Officer / Admin"]
-    User -->|HTTP / Browser| Frontend["React + Vite Frontend (Port 5173)"]
-    Frontend -->|REST APIs + Cookies| Backend["Node.js + Express Backend (Port 5000)"]
-    Backend -->|Mongoose ODM| MongoDB[("Local MongoDB Community Server (Port 27017)")]
-    Backend -->|JSON / Multipart HTTP| MLService["Python FastAPI AI/ML Service (Port 8000)"]
-    
-    subgraph MLService["Python AI/ML Microservice"]
+    subgraph Clients["Frontend Web Application (Port 5173)"]
         direction TB
-        PyMuPDF["PyMuPDF 2.0 (PDF Extraction & Scanned Detection)"]
-        Extractor["Skill Extractor (150+ Technical Skills Taxonomy)"]
-        Recommender["TF-IDF + Cosine Similarity & Weighted Matcher"]
+        UI["React 19 + Vite 6 + Tailwind CSS 4"]
+        StudentPortal["Student Hub: Profile, ATS Builder & Matches"]
+        RecruiterPortal["Recruiter Hub: Drives, Jobs & Candidate Pipeline"]
+        OfficerPortal["Officer Portal: Institutional Intelligence & KPIs"]
+        AdminPortal["Super Admin: Security Gateway & Multi-Tenant Governance"]
+        UI --- StudentPortal & RecruiterPortal & OfficerPortal & AdminPortal
+    end
+
+    subgraph BackendAPI["Backend Core API (Node.js 24 + Express 5 - Port 5000)"]
+        direction TB
+        AuthService["Authentication & RBAC (JWT + Secure Cookies)"]
+        TenantService["Multi-Tenant Institute & Company Governance"]
+        RecruitmentEngine["Recruitment State Machine (10-Stage Workflow)"]
+        AuditEngine["Immutable Audit Trail (AdminAuditLog)"]
+        PDFEngine["Resume PDF Engine (Puppeteer v25+ Headless Chrome)"]
+        GroqService["AI Content Enhancer (Groq SDK / LLaMA Models)"]
+    end
+
+    subgraph Storage["Database & File Persistence"]
+        direction TB
+        Mongo[("MongoDB Community Server (Port 27017)\n9 Collections: Users, Institutes, Profiles,\nJobs, Applications, Resumes, Audit Logs")]
+        DiskStorage["Secure Local Storage\nuploads/resumes/ (Magic-Byte Validated)"]
+    end
+
+    subgraph MLService["AI/ML Intelligence Microservice (Python FastAPI - Port 8000)"]
+        direction TB
+        PyMuPDFEngine["PyMuPDF 2.0 (Text Parsing & Image-Scan Detection)"]
+        TaxonomyEngine["Skill Taxonomy Extractor (150+ Standardized Skills)"]
+        RecommenderEngine["Explainable Matcher (Dynamic TF-IDF + Skill Overlap)"]
         GapAnalyzer["Actionable Skill-Gap Analyzer"]
     end
+
+    Clients -->|HTTP / JSON / Cookies| BackendAPI
+    BackendAPI -->|Mongoose 9 ODM| Mongo
+    BackendAPI -->|Direct Binary I/O| DiskStorage
+    BackendAPI -->|REST HTTP / multipart| MLService
+    BackendAPI -->|Headless HTML to PDF| PDFEngine
+    BackendAPI -->|Chat Completions API| GroqService
 ```
 
 ---
 
-## 2. Technology Stack & Mandatory Constraints
+## 2. Technology Stack & Key Specifications
 
-- **Total Service Budget:** ₹0 (100% open-source, local execution).
-- **Frontend:** React 19, Vite 6, Tailwind CSS 4, React Router 7, Recharts, Lucide React.
-- **Backend:** Node.js 24, Express 5, Mongoose 9, dotenv, CORS, Helmet, Cookie-Parser, Multer, Bcryptjs, JSONWebToken.
-- **Database:** MongoDB Community Server (local Windows Service listening on `127.0.0.1:27017`).
-- **AI/ML Service:** Python 3.14, FastAPI, Uvicorn, PyMuPDF 2.0 (`pymupdf`), Scikit-learn 1.9.1, python-multipart.
+| Layer | Technologies & Libraries | Key Responsibilities |
+| :--- | :--- | :--- |
+| **Frontend** | React 19, Vite 6, Tailwind CSS 4, React Router 7, Recharts, Lucide React | Modern editorial UI ("Paper & Ink" theme), responsive dashboards, real-time resume editor, interactive data visualization |
+| **Backend** | Node.js 24+, Express 5, Mongoose 9, Puppeteer v25+, Groq SDK, Multer, Helmet, Bcryptjs, JWT | High-security REST APIs, multi-tenant RBAC, binary magic-byte inspection, ATS PDF generation, AI text rewriting |
+| **AI/ML Microservice** | Python 3.10–3.14+, FastAPI, Uvicorn, PyMuPDF 2.0 (`pymupdf`), Scikit-learn 1.9+, Pydantic | PDF text extraction, scanned document detection, boundary-aware skill taxonomy parsing, deterministic job match scoring |
+| **Database** | MongoDB Community Server (Windows Service / `127.0.0.1:27017`) | Multi-tenant relational-like schema, compound unique indexes, aggregation pipelines, audit logs |
 
 ---
 
 ## 3. Core Functional Modules
 
-### Module 1: Authentication & Role-Based Authorization
-- Secure password hashing with `bcryptjs` (salt rounds: 10).
-- Signed JSON Web Tokens (JWT) stored in HTTP-only, SameSite cookies.
-- Strict role-based middleware (`protect`, `authorize("student", "recruiter", "placement_officer", "admin")`).
-- Prevents mass assignment and unauthenticated privilege escalation.
+### 🏛️ Module 1: Multi-Tenancy & Institutional Governance
+* **Multi-Institute Support:** Multi-tenant architecture through the `Institute` model, allowing universities, colleges, and autonomous institutes to operate independently.
+* **Affiliated Placement Drives:** Placement Officers are tethered to their accredited institution, managing student directories, company authorizations, and on-campus recruitment drives.
+* **Company Verification & Cross-Campus Authorization:** Companies must be verified by Platform Super Admins before participating in institutional drives.
 
-### Module 2: Student Profiles
-- Personal and academic data management: Roll number, Department, Batch, CGPA, Backlogs, and Phone.
-- Technical skills inventory, project showcase, and internship experience.
-- Student data privacy: students can only access their own profiles; recruiters/officers have authorized search access.
+### 🔐 Module 2: Authentication & Role-Based Access Control (RBAC)
+* **Four Canonical Roles:** `SUPER_ADMIN`, `PLACEMENT_OFFICER`, `RECRUITER`, and `STUDENT`.
+* **Super Admin Security Gateway:** Dedicated high-security gateway (`/admin/gateway`) with rate-limiting, security passkeys, and multi-factor session validation.
+* **Security Hardening:** Password hashing using `bcryptjs` (10 rounds), signed JWTs in `httpOnly`, `SameSite: strict` cookies, Helmet HTTP headers, and CORS whitelist protection.
+* **Audit Trail:** Append-only administrative activity logging via `AdminAuditLog`.
 
-### Module 3: Secure Resume Upload & AI Parsing
-- File-type verification: Enforces max 5 MB limit and inspects binary **magic bytes** (`%PDF-`) to reject renamed executables.
-- PyMuPDF text extraction across multi-page resumes.
-- Scanned document detection: identifies image-only PDFs lacking a selectable text layer and provides clear notices that OCR is required.
-- Rule-based regex extraction mapped to a 150+ skill taxonomy across Languages, Frameworks, Databases, DevOps, and Data Science.
-- Interactive student review: students can review, correct, or add missing skills, which automatically sync to their profile.
+### 📄 Module 3: AI Resume Parser & Magic-Byte File Validation
+* **Binary Magic-Byte Inspection:** Verifies `%PDF-` file signatures directly on raw binary uploads to block disguised executables or malformed documents.
+* **Text & Scanned Document Parsing:** PyMuPDF extracts text streams across multi-page resumes and automatically detects scanned/image-only PDFs lacking selectable text, alerting users when OCR is required.
+* **150+ Skill Taxonomy:** Regex-based, boundary-aware extraction matching technical skills across Languages, Web Frameworks, Cloud, DevOps, AI/ML, and Databases.
+* **Interactive Skill Verification:** Students can review, accept, reject, or manually add extracted technical competencies before syncing to their placement profile.
 
-### Module 4: Company & Job Management
-- Recruiter portal for company profile creation and job publishing.
-- Granular specification of `requiredSkills` (must-have) and `preferredSkills` (good-to-have).
-- Minimum academic eligibility rules: Minimum CGPA, target batch year, allowed departments, and maximum permitted backlogs.
-- Multi-criteria job discovery and keyword/skill filtering.
+### 📝 Module 4: ATS Resume Builder & AI Content Enhancer
+* **5 Modern ATS Templates:**
+  1. *Modern Minimalist:* Clean single-column layout with About Me and prioritized projects.
+  2. *Technical Developer:* Technology-forward design highlighting stack, GitHub/portfolio links, and systems engineering.
+  3. *Fresher Graduate:* Early-career layout focused on education, academic coursework, and certifications.
+  4. *Modern ATS Professional:* Crisp, recruiter-friendly enterprise design with balanced metrics.
+  5. *Corporate Experienced:* Deep chronological timeline with quantifiable business achievements.
+* **Side-by-Side Live Preview:** Real-time resume preview synchronized with the student's verified profile data.
+* **AI-Powered "Improve with AI":** Powered by Groq LLaMA models (`llama-3.1-8b-instant`) to rewrite summaries and project descriptions into action-oriented, metrics-driven bullet points.
+* **Chromium PDF Compilation:** High-resolution server-side PDF generation using headless Puppeteer v25+ with direct binary MongoDB storage.
+* **Direct Resume Replacement:** Replace active student application resumes with the newly generated ATS PDF in one click.
 
-### Module 5 & 6: Explainable AI Recommendation & Skill-Gap Analysis
-- **Scoring Formula:**
-  $$\text{Match Score} = 0.70 \times \text{Required Skill Match} + 0.15 \times \text{Preferred Skill Match} + 0.15 \times \text{TF-IDF Cosine Similarity}$$
-- **Hard Eligibility Screening:** Evaluated independently from the skill score. Ineligible candidates receive clear explanations without falsifying the skill score.
-- **Skill-Gap Analysis:** Categorizes missing competencies into **High Priority** (missing required skills) and **Medium Priority** (missing preferred skills), coupled with actionable learning paths.
-- **Transparency Disclaimer:** Scores reflect profile alignment and do not represent a probability or guarantee of receiving a job offer.
+### 🎯 Module 5: Explainable AI Recommendation & Skill-Gap Analysis
+* **Dynamic Weight Renormalization Formula:**
+  $$\text{Match Score} = w_{\text{req}} \times \text{Required Skills Overlap} + w_{\text{pref}} \times \text{Preferred Skills Overlap} + w_{\text{tfidf}} \times \text{TF-IDF Cosine Similarity}$$
+  *Baseline Weights:* $w_{\text{req}} = 0.70$, $w_{\text{pref}} = 0.15$, $w_{\text{tfidf}} = 0.15$.  
+  If a job does not define preferred skills or text corpus, the active weights dynamically renormalize to sum to $1.0$ without falsely granting $100\%$ score.
+* **Independent Hard Eligibility Gates:**
+  - Minimum CGPA verification.
+  - Maximum permitted active and historic backlogs.
+  - Target graduation batch year validation.
+  - Department synonym matching (`departmentMatch.js`), normalizing variants such as "CSE" and "Computer Science and Engineering".
+* **Actionable Skill-Gap Diagnostics:** Missing skills are flagged into **High Priority** (missing required skills) and **Medium Priority** (missing preferred skills), complete with suggested learning roadmaps.
 
-### Module 7: Application Tracking & Recruitment Workflow
-- Compound unique index (`{ student: 1, job: 1 }`) prevents duplicate applications.
-- Pre-submission eligibility guard verifies CGPA and backlogs.
-- Recruitment stage state machine: `Applied` $\rightarrow$ `Under Review` $\rightarrow$ `Assessment` $\rightarrow$ `Interview` $\rightarrow$ `Selected` / `Rejected` / `Withdrawn`.
-- Complete append-only audit trail (`statusHistory`) recording timestamps, authorized recruiters, and notes.
-- Selecting a candidate automatically updates their student placement status to `placed`.
+### 🔄 Module 6: Recruitment Pipeline & Application State Machine
+* **10-Stage Recruitment Lifecycle:**  
+  `Applied` $\rightarrow$ `Shortlisted` $\rightarrow$ `Under Review` $\rightarrow$ `Assessment` $\rightarrow$ `Interview` $\rightarrow$ `Selected` / `Rejected` / `Withdrawn` / `Offer Declined` / `Offer Revoked`.
+* **Duplicate Prevention:** Compound database index `{ student: 1, job: 1 }` prevents duplicate submissions.
+* **Immutable Status History:** Every stage transition logs the authorized user, timestamp, decision rationale, and recruiter feedback notes.
+* **Automatic Status Synchronization:** Selecting a candidate updates their profile placement status to `placed` across the platform.
 
-### Module 8: Live Placement Analytics
-- Real-time MongoDB aggregation pipelines (`$group`, `$unwind`, `$cond`, `$project`):
-  - Total registered students, active drives, applications submitted, and placed students.
-  - Institutional placement conversion percentage.
-  - Interactive Recharts bar chart of recruitment stages.
-  - Department-wise placement performance with average CGPA.
-  - Skill demand vs. supply analysis detecting institutional talent gaps (e.g., high employer demand but low student coverage).
+### 📊 Module 7: Placement Analytics & Institutional Intelligence
+* **MongoDB Aggregation Pipelines:** Real-time data processing across student populations, recruitment drives, and applications:
+  - Real-time conversion percentages and placement velocity.
+  - Department-wise placement performance with average CGPA correlation.
+  - Recruitment funnel stage distribution visualized with interactive Recharts charts.
+  - Skill supply-versus-demand matrix highlighting campus talent deficits.
+  - One-click CSV student directory export for placement audits.
 
 ---
 
-## 4. Local Startup & Execution Guide
+## 4. Database Schema Overview
+
+```
+campus_placement/
+├── institutes          # Multi-tenant colleges, universities & domains
+├── users               # Authenticated identities across all 4 roles
+├── studentprofiles     # Academic details, CGPA, backlogs, skills & projects
+├── resumeanalyses      # PyMuPDF parsed metadata, extracted skills & confidence scores
+├── generatedresumes    # Built ATS resumes, template metadata & binary PDFs
+├── companies           # Registered employers, verification flags & authorized institutes
+├── jobs                # Job drives, eligibility criteria, required/preferred skills
+├── applications        # Student job submissions, status history & recruiter audit trail
+└── adminauditlogs      # Append-only security and administration event log
+```
+
+---
+
+## 5. Local Setup & Execution Guide
 
 ### Prerequisites
-1. **Windows 11** with PowerShell.
-2. **Node.js** (v24+) & **npm** (v11+).
-3. **Python** (v3.14+) with `py` launcher.
-4. **MongoDB Community Server** (running as a local Windows Service on port `27017`).
+* **Windows 10/11** with PowerShell.
+* **Node.js:** v20.x or v24.x LTS (`node -v`).
+* **Python:** v3.10 – v3.14 (`py --version`).
+* **MongoDB Community Server:** Local Windows service running on `127.0.0.1:27017`.
 
 ---
 
-### Option A: One-Click Startup (Recommended for Windows)
+### Option A: One-Click Startup (Recommended)
 
 Double-click `start-services.bat` or run in PowerShell:
 ```powershell
 .\start-services.ps1
 ```
-This automatically boots all 3 services in separate windows:
-- **Frontend Web UI:** `http://localhost:5173`
-- **Node/Express API:** `http://localhost:5000`
-- **AI/ML Service Docs:** `http://127.0.0.1:8000/docs`
+This automatically boots all three microservices in separate dedicated terminal windows:
+* **Frontend Web Application:** [http://localhost:5173](http://localhost:5173)
+* **Backend REST API:** [http://localhost:5000](http://localhost:5000)
+* **AI/ML Microservice Docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ---
 
-### Option B: Manual Startup
+### Option B: Manual Service Startup
 
-**Step 1: Start Python AI/ML Microservice**
+#### 1. Setup & Launch AI/ML Microservice
 ```powershell
 cd ml-service
+py -m pip install -r requirements.txt
 py -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
-*Health check URL:* `http://127.0.0.1:8000/health`
+*Health check:* `http://127.0.0.1:8000/health`  
+*Swagger Documentation:* `http://127.0.0.1:8000/docs`
 
-**Step 2: Start Node.js Express Backend**
+#### 2. Setup & Launch Node.js Express Backend
 ```powershell
 cd backend
+npm install
+npm run install:chrome    # Installs Chromium browser for Puppeteer PDF generator
 npm run dev
 ```
-*Server runs at:* `http://localhost:5000`  
-*API Health check:* `http://localhost:5000/api/health`
+*Health check:* `http://localhost:5000/api/health`
 
-**Step 3: Start React Vite Frontend**
+#### 3. Setup & Launch React Vite Frontend
 ```powershell
 cd frontend
+npm install
 npm run dev
 ```
-*Frontend runs at:* `http://localhost:5173`
+*Application URL:* `http://localhost:5173`
 
 ---
 
-## 5. Instant Demo Seeding & Credentials
+## 6. Environment Configuration
 
-Populate the database with realistic companies (Google, Microsoft, Amazon), job openings, student profiles, and multi-stage applications:
+### Backend (`backend/.env`)
+Create a `.env` file inside the `backend/` directory:
+```env
+PORT=5000
+NODE_ENV=development
+MONGODB_URI=mongodb://127.0.0.1:27017/campus_placement
+JWT_SECRET=super_secret_jwt_passphrase_for_local_development_2026
+JWT_EXPIRE=30d
+JWT_COOKIE_EXPIRE=30
+CLIENT_URL=http://localhost:5173
+ML_SERVICE_URL=http://127.0.0.1:8000
 
-```powershell
-npm run seed
+# Optional: GroqCloud API for "Improve with AI" (LLaMA-3.1)
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=llama-3.1-8b-instant
 ```
 
-### Ready-to-Use Demo Accounts
+---
 
-| Role | Email | Password | Details |
+## 7. Administrative CLI Utilities
+
+The system includes dedicated command-line utilities for administration and seeding:
+
+```powershell
+# Create or reset the Platform Super Admin account
+npm --prefix backend run create-admin
+
+# Interactive secure Super Admin bootstrap (Phase 4 standard)
+node backend/scripts/bootstrapAdmin.js
+
+# Create or reset a Placement Officer account
+npm --prefix backend run create-officer
+
+# Execute Phase 2 role standardization & schema migrations
+npm --prefix backend run migrate:phase2:execute
+
+# Reset database collections (development environment only)
+node backend/scripts/resetDatabase.js
+```
+
+---
+
+## 8. REST API Reference
+
+| Endpoint Group | Prefix | Key Endpoints | Access Control |
 | :--- | :--- | :--- | :--- |
-| **Placement Officer** | `officer@campus.edu` | `OfficerPassword@123` | Full placement analytics, charts, student directory |
-| **Administrator** | `admin@campus.edu` | `AdminPassword@123` | System oversight & configurations |
-| **Recruiter (Google)** | `google.recruiter@campus.edu` | `RecruiterPassword@123` | SDE I openings, candidate review pipeline |
-| **Recruiter (Microsoft)** | `microsoft.recruiter@campus.edu` | `RecruiterPassword@123` | AI/ML openings, candidate evaluation |
-| **Recruiter (Amazon)** | `amazon.recruiter@campus.edu` | `RecruiterPassword@123` | Cloud DevOps openings |
-| **Student (High Match)** | `priya.sharma@campus.edu` | `StudentPassword@123` | CGPA 9.25, CSE, 8 skills, Interview stage |
-| **Student (Placed)** | `rahul.verma@campus.edu` | `StudentPassword@123` | CGPA 8.85, IT, ML specialist, Placed at MSFT |
-| **Student (DevOps)** | `amit.patel@campus.edu` | `StudentPassword@123` | CGPA 7.90, ECE, Cloud & Linux focus |
+| **Authentication** | `/api/auth` | `/login`, `/super-admin/login`, `/student/register`, `/me`, `/change-password` | Public / Authenticated |
+| **Super Admin** | `/api/admin` | `/overview`, `/users`, `/institutes`, `/companies`, `/recruiters` | `SUPER_ADMIN` |
+| **Placement Officer** | `/api/officer` | `/drives`, `/students`, `/students/:id/placement-override`, `/recruiters`, `/students/export` | `PLACEMENT_OFFICER` |
+| **Recruiter Portal** | `/api/recruiter`| `/overview`, `/company`, `/jobs`, `/applications` | `RECRUITER` |
+| **Job Drives** | `/api/jobs` | `GET /`, `POST /`, `GET /:id`, `PUT /:id` | Public (active) / `RECRUITER` |
+| **Applications** | `/api/applications` | `POST /jobs/:jobId`, `GET /me`, `PUT /:id/stage`, `PUT /:id/withdraw` | `STUDENT` / `RECRUITER` / `OFFICER` |
+| **Resume Upload** | `/api/resumes` | `POST /upload`, `GET /me`, `PUT /:id/confirm-fields` | `STUDENT` |
+| **Resume Builder** | `/api/resume-builder` | `/templates`, `/ai/summary`, `/ai/project-description`, `/generate`, `/:id/download` | `STUDENT` |
+| **Recommendations** | `/api/recommendations` | `GET /me`, `GET /jobs/:jobId/gap` | `STUDENT` |
+| **Analytics** | `/api/analytics` | `/overview`, `/departments`, `/stages`, `/skill-demand` | `PLACEMENT_OFFICER`, `SUPER_ADMIN` |
+| **System Health** | `/api/health` | `GET /` | Public |
 
 ---
 
-## 6. Automated Verification & Testing Suite
+## 9. Design System & User Interface
 
-All tests execute against local MongoDB and local services without mocks:
-
-| Test File | Description | Status |
-| :--- | :--- | :---: |
-| `backend/tests/e2e.test.js` | Full 8-step lifecycle: Register $\rightarrow$ Profile $\rightarrow$ PDF Upload $\rightarrow$ AI Extract $\rightarrow$ Recruiter Job $\rightarrow$ AI Recommendation $\rightarrow$ Apply $\rightarrow$ Status $\rightarrow$ Analytics | **PASSED** |
-| `backend/tests/auth.test.js` | 9 Tests: Registration, hashing, JWT cookies, role-based 403, duplicate rejection | **PASSED** |
-| `backend/tests/studentProfile.test.js` | 6 Tests: Profile CRUD, CGPA range validation, cross-user privacy | **PASSED** |
-| `backend/tests/resume.test.js` | 6 Tests: Magic-byte PDF check, PyMuPDF extraction, auto-sync, student review | **PASSED** |
-| `backend/tests/job.test.js` | 7 Tests: Company creation, job posting, student forbidden, skill/CGPA filters | **PASSED** |
-| `backend/tests/recommendation.test.js` | AI matching, TF-IDF cosine similarity, hard eligibility, skill gaps | **PASSED** |
-| `backend/tests/application.test.js` | 7 Tests: Duplicate prevention, eligibility check, status history, withdrawal | **PASSED** |
-| `backend/tests/analytics.test.js` | MongoDB aggregations, placement rate, stage breakdown, skill gap deficit | **PASSED** |
-
-Run the complete end-to-end integration test:
-```powershell
-npm run test:e2e
-```
-
-To run any test suite individually:
-```powershell
-node backend/tests/auth.test.js
-node backend/tests/studentProfile.test.js
-node backend/tests/job.test.js
-node backend/tests/application.test.js
-node backend/tests/analytics.test.js
-node backend/tests/resume.test.js
-node backend/tests/recommendation.test.js
-```
+The frontend is crafted around an editorial **"Paper & Ink"** visual philosophy that emphasizes typography, clarity, and institutional prestige:
+* **Palette:** Forest Teal (`#0b5f5c`), Deep Ink (`#122826`), Warm Paper (`#f3f0ea`), Soft Surface (`#faf8f4`), Sage Border (`#d7e0dc`), Warm Gold (`#c4a35a`).
+* **Typography:** Display serif `Fraunces` for headings; high-legibility geometric sans-serif `Source Sans 3` for body, metadata, and tables.
+* **Componentry:** Zero-runtime modals, responsive slide-outs, accessible tab traps, custom scrollbars, and tactile button states.
 
 ---
 
-## 6. Directory Structure
+## 10. License & Maintenance
 
-```text
-campus-placement-system/
-├── package.json                   # Root workspace scripts
-├── .gitignore                     # Git exclusion rules
-├── backend/
-│   ├── config/
-│   │   └── db.js                  # Mongoose connection & lifecycle events
-│   ├── controllers/
-│   │   ├── auth.controller.js
-│   │   ├── studentProfile.controller.js
-│   │   ├── resume.controller.js
-│   │   ├── job.controller.js
-│   │   ├── recommendation.controller.js
-│   │   ├── application.controller.js
-│   │   ├── analytics.controller.js
-│   │   └── health.controller.js
-│   ├── middleware/
-│   │   ├── auth.js                # protect & authorize RBAC
-│   │   ├── errorHandler.js        # Centralized error handler
-│   │   └── notFound.js            # 404 handler
-│   ├── models/
-│   │   ├── User.js
-│   │   ├── StudentProfile.js
-│   │   ├── ResumeAnalysis.js
-│   │   ├── Company.js
-│   │   ├── Job.js
-│   │   └── Application.js
-│   ├── routes/
-│   ├── tests/                     # Automated integration test suite
-│   ├── uploads/resumes/           # Private local resume storage
-│   ├── .env
-│   ├── .env.example
-│   ├── package.json
-│   └── server.js
-├── ml-service/
-│   ├── skills_dataset.py          # 150+ skills taxonomy
-│   ├── parser.py                  # PyMuPDF text & scan detection
-│   ├── extractor.py               # Boundary-aware skill extractor
-│   ├── recommender.py             # TF-IDF cosine similarity & gap analyzer
-│   └── main.py                    # FastAPI microservice entrypoint
-└── frontend/
-    ├── src/
-    │   ├── components/            # Navbar, ProtectedRoute
-    │   ├── context/               # AuthContext
-    │   ├── pages/
-    │   │   ├── LandingPage.jsx
-    │   │   ├── LoginPage.jsx
-    │   │   ├── RegisterPage.jsx
-    │   │   ├── student/           # Dashboard, Profile, Resume, Matches, Jobs, Applications
-    │   │   ├── recruiter/         # Hub, PostJob, CandidateReview
-    │   │   └── officer/           # AnalyticsDashboard, StudentDirectory
-    │   ├── App.jsx                # Client-side router
-    │   └── main.jsx
-    ├── index.html
-    ├── vite.config.js             # Vite + Tailwind + /api proxy
-    └── package.json
-```
+This project is licensed under the [MIT License](LICENSE). Built for academic institutions and modern career development centers.
