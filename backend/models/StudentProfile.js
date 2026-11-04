@@ -119,8 +119,21 @@ const StudentProfileSchema = new mongoose.Schema(
       maxlength: [1200, "Professional summary cannot exceed 1200 characters"],
     },
     academicHistory: {
-      tenthPercentage: { type: Number, min: 0, max: 100, default: null },
+      // College start year; graduation year uses StudentProfile.batch (from registration/academic)
+      collegeStartYear: {
+        type: Number,
+        default: null,
+        min: [1950, "College start year is invalid"],
+        max: [2050, "College start year is invalid"],
+      },
+      // Higher secondary (12th)
+      intermediateName: { type: String, trim: true, default: "", maxlength: 200 },
+      intermediateDuration: { type: String, trim: true, default: "", maxlength: 60 },
       twelfthPercentage: { type: Number, min: 0, max: 100, default: null },
+      // Secondary (10th)
+      schoolName: { type: String, trim: true, default: "", maxlength: 200 },
+      schoolDuration: { type: String, trim: true, default: "", maxlength: 60 },
+      tenthPercentage: { type: Number, min: 0, max: 100, default: null },
       diplomaPercentage: { type: Number, min: 0, max: 100, default: null },
       semesters: [
         {
@@ -178,6 +191,9 @@ const StudentProfileSchema = new mongoose.Schema(
         company: { type: String, required: [true, "Company is required"], trim: true },
         duration: { type: String, trim: true, default: "" },
         description: { type: String, trim: true, default: "" },
+        aiEnhancedDescription: { type: String, trim: true, default: "" },
+        aiEnhancedApproved: { type: Boolean, default: false },
+        aiEnhancedSourceHash: { type: String, trim: true, default: "" },
         startDate: { type: Date, default: null },
         endDate: { type: Date, default: null },
         isCurrent: { type: Boolean, default: false },

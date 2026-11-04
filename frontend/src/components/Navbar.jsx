@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   Briefcase,
-  FileText,
   Sparkles,
   BarChart3,
   Users,
@@ -73,6 +72,7 @@ const Navbar = () => {
               src="/brand/campusplacement-logo.png"
               alt="CampusPlacement Intelligence"
               className="h-9 sm:h-11 w-auto max-w-[180px] xs:max-w-[220px] sm:max-w-none object-contain object-left"
+              style={{height: "60px"}}
             />
           </Link>
 
@@ -86,9 +86,6 @@ const Navbar = () => {
                   </Link>
                   <Link to="/student/profile" className={linkClass("/student/profile")}>
                     <User className="w-4 h-4" /> My Profile
-                  </Link>
-                  <Link to="/student/resume" className={linkClass("/student/resume")}>
-                    <FileText className="w-4 h-4" /> Resume AI
                   </Link>
                   <Link to="/student/recommendations" className={linkClass("/student/recommendations")}>
                     <Sparkles className="w-4 h-4 text-accent" /> AI Matches
@@ -230,7 +227,6 @@ const Navbar = () => {
                 <>
                   <Link to="/student/dashboard" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Dashboard</Link>
                   <Link to="/student/profile" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">My Profile</Link>
-                  <Link to="/student/resume" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Resume AI</Link>
                   <Link to="/student/recommendations" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">AI Matches</Link>
                   <Link to="/student/jobs" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Browse Jobs</Link>
                   <Link to="/student/applications" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">My Applications</Link>

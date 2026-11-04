@@ -3,14 +3,13 @@ const {
   categorizeSkills,
   deriveTitle,
   contactBits,
-  educationLine,
+  renderEducationHtml,
   bulletizeDescription,
   wrapDocument,
 } = require("./shared");
 
 const renderModernAtsProfessional = (s) => {
   const cats = categorizeSkills(s.skills || []);
-  const edu = educationLine(s);
   const contact = contactBits(s, { withLabels: true });
   const location = s.location || "India";
 
@@ -77,9 +76,7 @@ const renderModernAtsProfessional = (s) => {
     ${skillsHtml}
     ${experienceHtml}
     ${projectsHtml}
-    <h2>Education</h2>
-    <p><span class="item-title">${escapeHtml(edu.degreeDept || "Degree")}</span>${edu.school ? ` – ${escapeHtml(edu.school)}` : ""}</p>
-    <p class="muted">${[edu.year, edu.cgpa].filter(Boolean).map(escapeHtml).join(" | ")}</p>
+    ${renderEducationHtml(s)}
     ${certsHtml}
   `;
 

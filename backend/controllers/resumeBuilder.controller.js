@@ -1,5 +1,4 @@
 const fs = require("fs");
-const path = require("path");
 const crypto = require("crypto");
 const StudentProfile = require("../models/StudentProfile");
 const User = require("../models/User");
@@ -7,6 +6,7 @@ const GeneratedResume = require("../models/GeneratedResume");
 const {
   generateProfessionalSummary,
   improveProjectDescription,
+  improveExperienceDescription,
 } = require("../services/resumeAIService");
 const {
   listTemplates,
@@ -14,13 +14,21 @@ const {
 } = require("../services/resumeTemplates");
 const {
   generateResumePdf,
-  studentDir,
   resolveSafeFilePath,
-  ensureDir,
 } = require("../services/resumePdfService");
+
+/** Public resume JSON without binary PDF payload */
+const toResumeResponse = (doc) => {
+  if (!doc) return null;
+  const obj = typeof doc.toObject === "function" ? doc.toObject() : { ...doc };
+  delete obj.fileData;
+  return obj;
+};
 const {
   hashProjectSource,
+  hashExperienceSource,
   getEffectiveProjectDescription,
+  getEffectiveExperienceDescription,
   validateOptionalHttpsUrl,
 } = require("../utils/resumeProfileHelpers");
 
@@ -37,7 +45,10 @@ const cleanStringArray = (arr) => {
 };
 
 const buildSnapshotFromProfile = (user, profile, overrides = {}) => {
-  const src = { ...profile, ...overrides };
+  const plainProfile =
+    profile && typeof profile.toObject === "function" ? profile.toObject() : { ...profile };
+  const src = { ...plainProfile, ...overrides };
+  const ah = src.academicHistory || {};
   const projects = (src.projects || []).map((p) => {
     const plain = typeof p.toObject === "function" ? p.toObject() : { ...p };
     return {
@@ -50,6 +61,11 @@ const buildSnapshotFromProfile = (user, profile, overrides = {}) => {
     };
   }).filter((p) => p.title);
 
+  const instituteName =
+    (typeof src.institute === "object" && src.institute?.name) ||
+    overrides.instituteName ||
+    "";
+
   return {
     name: overrides.name || user?.name || "",
     email: user?.email || "",
@@ -59,18 +75,29 @@ const buildSnapshotFromProfile = (user, profile, overrides = {}) => {
     department: src.department || "",
     batch: src.batch,
     cgpa: src.cgpa,
-    instituteName:
-      (typeof src.institute === "object" && src.institute?.name) ||
-      overrides.instituteName ||
-      "",
-    professionalSummary: src.professionalSummary || "",
+    instituteName,
+    collegeStartYear: ah.collegeStartYear ?? "",
+    intermediateName: ah.intermediateName || "",
+    intermediateDuration: ah.intermediateDuration || "",
+    schoolName: ah.schoolName || "",
+    schoolDuration: ah.schoolDuration || "",
+    tenthPercentage: ah.tenthPercentage ?? "",
+    twelfthPercentage: ah.twelfthPercentage ?? "",
+    // Summary lives on the resume snapshot only (from builder/AI), not StudentProfile
+    professionalSummary: String(overrides.professionalSummary || "").trim(),
     githubUrl: src.githubUrl || "",
     linkedinUrl: src.linkedinUrl || "",
     portfolioUrl: src.portfolioUrl || "",
     skills: Array.isArray(src.skills) ? src.skills : [],
     projects,
     experience: (src.experience || [])
-      .map((e) => (typeof e.toObject === "function" ? e.toObject() : e))
+      .map((e) => {
+        const plain = typeof e.toObject === "function" ? e.toObject() : { ...e };
+        return {
+          ...plain,
+          description: getEffectiveExperienceDescription(plain),
+        };
+      })
       .filter((e) => e.role && e.company),
     certifications: (src.certifications || [])
       .map((c) => (typeof c.toObject === "function" ? c.toObject() : c))
@@ -82,9 +109,7 @@ const applyProfileUpdatesFromBody = async (userId, body, existingProfile) => {
   const updates = {};
 
   if (body.phone !== undefined) updates.phone = String(body.phone || "").trim();
-  if (body.professionalSummary !== undefined) {
-    updates.professionalSummary = String(body.professionalSummary || "").trim().slice(0, 1200);
-  }
+  // professionalSummary is resume-only (auto-generated into PDF snapshot) — not stored on StudentProfile
   if (body.degree !== undefined) updates.degree = String(body.degree || "").trim();
   if (body.department !== undefined) updates.department = String(body.department || "").trim();
 
@@ -145,15 +170,32 @@ const applyProfileUpdatesFromBody = async (userId, body, existingProfile) => {
 
   if (Array.isArray(body.experience)) {
     updates.experience = body.experience
-      .map((exp) => ({
-        role: String(exp.role || "").trim(),
-        company: String(exp.company || "").trim(),
-        duration: String(exp.duration || "").trim(),
-        description: String(exp.description || "").trim(),
-        startDate: exp.startDate ? new Date(exp.startDate) : null,
-        endDate: exp.endDate ? new Date(exp.endDate) : null,
-        isCurrent: Boolean(exp.isCurrent),
-      }))
+      .map((exp) => {
+        const role = String(exp.role || "").trim();
+        const company = String(exp.company || "").trim();
+        const description = String(exp.description || "").trim();
+        const currentHash = hashExperienceSource(role, company, description);
+        let aiEnhancedDescription = String(exp.aiEnhancedDescription || "").trim();
+        let aiEnhancedApproved = Boolean(exp.aiEnhancedApproved);
+        let aiEnhancedSourceHash = String(exp.aiEnhancedSourceHash || "").trim();
+        if (aiEnhancedApproved && aiEnhancedSourceHash && aiEnhancedSourceHash !== currentHash) {
+          aiEnhancedApproved = false;
+        }
+        return {
+          role,
+          company,
+          duration: String(exp.duration || "").trim(),
+          description,
+          aiEnhancedDescription,
+          aiEnhancedApproved,
+          aiEnhancedSourceHash: aiEnhancedApproved
+            ? aiEnhancedSourceHash || currentHash
+            : aiEnhancedSourceHash,
+          startDate: exp.startDate ? new Date(exp.startDate) : null,
+          endDate: exp.endDate ? new Date(exp.endDate) : null,
+          isCurrent: Boolean(exp.isCurrent),
+        };
+      })
       .filter((e) => e.role && e.company);
   }
 
@@ -206,23 +248,21 @@ const aiSummary = async (req, res, next) => {
       "institute",
       "name"
     );
-    if (!profile) {
-      return res.status(404).json({
-        success: false,
-        message: "Student profile not found. Complete your profile first.",
-      });
-    }
+
+    const body = req.body || {};
+    const effectiveProfile = profile || {};
 
     const summary = await generateProfessionalSummary({
-      name: req.user.name,
-      degree: profile.degree,
-      department: profile.department,
-      batch: profile.batch,
-      cgpa: profile.cgpa,
-      skills: profile.skills,
-      projects: profile.projects,
-      experience: profile.experience,
-      certifications: profile.certifications,
+      name: body.name || req.user.name,
+      degree: body.degree || effectiveProfile.degree || "B.Tech",
+      department: body.department || effectiveProfile.department || "Computer Science and Engineering",
+      batch: body.batch || effectiveProfile.batch,
+      cgpa: body.cgpa ?? effectiveProfile.cgpa,
+      skills: Array.isArray(body.skills) && body.skills.length > 0 ? body.skills : effectiveProfile.skills || [],
+      projects: Array.isArray(body.projects) && body.projects.length > 0 ? body.projects : effectiveProfile.projects || [],
+      experience: Array.isArray(body.experience) && body.experience.length > 0 ? body.experience : effectiveProfile.experience || [],
+      certifications: Array.isArray(body.certifications) && body.certifications.length > 0 ? body.certifications : effectiveProfile.certifications || [],
+      currentSummary: body.currentSummary || body.professionalSummary || "",
     });
 
     res.status(200).json({
@@ -275,14 +315,50 @@ const aiProjectDescription = async (req, res, next) => {
 };
 
 /**
+ * POST /api/resume-builder/ai/experience-description
+ */
+const aiExperienceDescription = async (req, res, next) => {
+  try {
+    const { role, company, duration, description, experienceIndex } = req.body || {};
+    if (!role || !description) {
+      return res.status(400).json({
+        success: false,
+        message: "Role and description are required.",
+      });
+    }
+
+    const improved = await improveExperienceDescription({
+      role,
+      company,
+      duration,
+      description,
+    });
+
+    const sourceHash = hashExperienceSource(role, company || "", description);
+
+    res.status(200).json({
+      success: true,
+      improvedDescription: improved,
+      sourceHash,
+      experienceIndex: experienceIndex ?? null,
+      message: "Review the improved description and approve it before saving.",
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+    next(error);
+  }
+};
+
+/**
  * POST /api/resume-builder/generate
  */
 const generateResume = async (req, res, next) => {
   let pendingDoc = null;
-  let absoluteFinalPath = null;
 
   try {
-    const { templateId, content, idempotencyKey } = req.body || {};
+    const { templateId, content, idempotencyKey, replaceResumeId } = req.body || {};
 
     if (!isValidTemplateId(templateId)) {
       return res.status(400).json({ success: false, message: "Invalid resume template." });
@@ -299,9 +375,25 @@ const generateResume = async (req, res, next) => {
         return res.status(200).json({
           success: true,
           message: "Resume already generated for this request.",
-          resume: existing,
+          resume: toResumeResponse(existing),
           idempotent: true,
         });
+      }
+    }
+
+    let resumeToReplace = null;
+    if (replaceResumeId) {
+      resumeToReplace = await GeneratedResume.findOne({
+        _id: replaceResumeId,
+        student: req.user._id,
+      });
+      // If specific resume not found, try finding any generated resume for this student to replace;
+      // if none found, seamlessly fall back to generating a fresh new resume.
+      if (!resumeToReplace) {
+        resumeToReplace = await GeneratedResume.findOne({
+          student: req.user._id,
+          status: "generated",
+        }).sort({ updatedAt: -1 });
       }
     }
 
@@ -346,57 +438,81 @@ const generateResume = async (req, res, next) => {
     const last = await GeneratedResume.findOne({ student: req.user._id })
       .sort({ version: -1 })
       .select("version");
-    const version = (last?.version || 0) + 1;
-    const fileName = `resume-v${version}-${Date.now()}.pdf`;
-    const dir = studentDir(req.user._id);
-    ensureDir(dir);
-    absoluteFinalPath = path.join(dir, fileName);
-    const relativePath = path
-      .join(String(req.user._id), fileName)
-      .replace(/\\/g, "/");
+    const version = resumeToReplace
+      ? resumeToReplace.version
+      : (last?.version || 0) + 1;
 
-    pendingDoc = await GeneratedResume.create({
-      student: req.user._id,
-      templateId,
-      fileName,
-      relativePath,
-      fileType: "application/pdf",
-      version,
-      status: "pending",
-      contentSnapshot: snapshot,
-      idempotencyKey: key || `auto-${crypto.randomBytes(8).toString("hex")}`,
-    });
+    const sanitizeResumeFileName = (raw) => {
+      let base = String(raw || "")
+        .trim()
+        .replace(/\.pdf$/i, "");
+      base = base
+        .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 80);
+      if (!base) base = `resume-v${version}`;
+      return `${base}.pdf`;
+    };
 
-    await generateResumePdf(templateId, snapshot, absoluteFinalPath);
+    const fileName = sanitizeResumeFileName(req.body?.fileName);
 
-    pendingDoc.status = "generated";
-    await pendingDoc.save();
+    // Drop any legacy on-disk copy when replacing
+    if (resumeToReplace?.fileName) {
+      try {
+        const oldPath = resolveSafeFilePath(req.user._id, resumeToReplace.fileName);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      } catch {
+        /* ignore missing/invalid old file */
+      }
+    }
 
-    if (!fs.existsSync(absoluteFinalPath)) {
-      pendingDoc.status = "failed";
-      await pendingDoc.save();
-      return res.status(500).json({
-        success: false,
-        message: "Resume file was not created. Please try again.",
+    if (resumeToReplace) {
+      resumeToReplace.templateId = templateId;
+      resumeToReplace.fileName = fileName;
+      resumeToReplace.relativePath = "";
+      resumeToReplace.contentSnapshot = snapshot;
+      resumeToReplace.status = "pending";
+      if (key) resumeToReplace.idempotencyKey = key;
+      await resumeToReplace.save();
+      pendingDoc = resumeToReplace;
+    } else {
+      pendingDoc = await GeneratedResume.create({
+        student: req.user._id,
+        templateId,
+        fileName,
+        relativePath: "",
+        fileType: "application/pdf",
+        version,
+        status: "pending",
+        contentSnapshot: snapshot,
+        idempotencyKey: key || `auto-${crypto.randomBytes(8).toString("hex")}`,
       });
     }
 
-    res.status(201).json({
+    const pdfBuffer = await generateResumePdf(templateId, snapshot);
+
+    pendingDoc.fileData = pdfBuffer;
+    pendingDoc.fileSize = pdfBuffer.length;
+    pendingDoc.relativePath = "";
+    pendingDoc.status = "generated";
+    await pendingDoc.save();
+
+    res.status(resumeToReplace ? 200 : 201).json({
       success: true,
-      message: "Resume generated successfully.",
-      resume: pendingDoc,
+      message: resumeToReplace
+        ? "Resume updated successfully."
+        : "Resume generated successfully.",
+      resume: toResumeResponse(pendingDoc),
+      replaced: Boolean(resumeToReplace),
     });
   } catch (error) {
     try {
       if (pendingDoc) {
         pendingDoc.status = "failed";
+        pendingDoc.fileData = undefined;
+        pendingDoc.fileSize = 0;
         await pendingDoc.save();
-      }
-      if (absoluteFinalPath && fs.existsSync(absoluteFinalPath)) {
-        // leave failed file for diagnostics only if generated; temp cleaned by pdf service
-      }
-      if (absoluteFinalPath && fs.existsSync(`${absoluteFinalPath}`)) {
-        /* noop */
       }
     } catch {
       /* ignore */
@@ -424,8 +540,8 @@ const listMyResumes = async (req, res, next) => {
       student: req.user._id,
       status: "generated",
     })
-      .sort({ version: -1 })
-      .select("-contentSnapshot");
+      .sort({ updatedAt: -1, version: -1 })
+      .select("-contentSnapshot -fileData");
 
     res.status(200).json({ success: true, count: resumes.length, resumes });
   } catch (error) {
@@ -438,11 +554,11 @@ const listMyResumes = async (req, res, next) => {
  */
 const getMyResume = async (req, res, next) => {
   try {
-    const resume = await GeneratedResume.findById(req.params.id);
+    const resume = await GeneratedResume.findById(req.params.id).select("-fileData");
     if (!resume || String(resume.student) !== String(req.user._id)) {
       return res.status(404).json({ success: false, message: "Resume not found." });
     }
-    res.status(200).json({ success: true, resume });
+    res.status(200).json({ success: true, resume: toResumeResponse(resume) });
   } catch (error) {
     next(error);
   }
@@ -453,7 +569,7 @@ const getMyResume = async (req, res, next) => {
  */
 const downloadMyResume = async (req, res, next) => {
   try {
-    const resume = await GeneratedResume.findById(req.params.id);
+    const resume = await GeneratedResume.findById(req.params.id).select("+fileData");
     if (
       !resume ||
       String(resume.student) !== String(req.user._id) ||
@@ -462,20 +578,29 @@ const downloadMyResume = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Resume not found." });
     }
 
-    const absolute = resolveSafeFilePath(req.user._id, resume.fileName);
-    if (!fs.existsSync(absolute)) {
-      return res.status(404).json({
-        success: false,
-        message: "Resume file is missing from storage.",
-      });
+    const disposition = `attachment; filename="${String(resume.fileName || "resume.pdf").replace(/"/g, "")}"`;
+    res.setHeader("Content-Type", resume.fileType || "application/pdf");
+    res.setHeader("Content-Disposition", disposition);
+
+    if (resume.fileData && resume.fileData.length > 0) {
+      res.setHeader("Content-Length", resume.fileData.length);
+      return res.end(resume.fileData);
     }
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${resume.fileName.replace(/"/g, "")}"`
-    );
-    fs.createReadStream(absolute).pipe(res);
+    // Legacy fallback: PDF previously written under uploads/generated-resumes
+    try {
+      const absolute = resolveSafeFilePath(req.user._id, resume.fileName);
+      if (fs.existsSync(absolute)) {
+        return fs.createReadStream(absolute).pipe(res);
+      }
+    } catch {
+      /* ignore invalid legacy path */
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "Resume file is missing from storage.",
+    });
   } catch (error) {
     next(error);
   }
@@ -485,6 +610,7 @@ module.exports = {
   getTemplates,
   aiSummary,
   aiProjectDescription,
+  aiExperienceDescription,
   generateResume,
   listMyResumes,
   getMyResume,

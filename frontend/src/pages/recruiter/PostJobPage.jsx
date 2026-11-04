@@ -349,7 +349,7 @@ const PostJobPage = () => {
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="e.g. Full Stack AI Engineer"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none"
               />
             </div>
 
@@ -373,7 +373,7 @@ const PostJobPage = () => {
                 value={formData.companyId}
                 disabled={isEditMode}
                 onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none bg-white disabled:bg-paper disabled:text-ink-muted"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white disabled:bg-paper disabled:text-ink-muted"
               >
                 {companies.length === 0 ? (
                   <option value="">No companies available. Click '+ Add Company'</option>
@@ -408,7 +408,7 @@ const PostJobPage = () => {
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none bg-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
                 >
                   <option value="open">Open</option>
                   <option value="closed">Closed</option>
@@ -426,7 +426,7 @@ const PostJobPage = () => {
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 placeholder="e.g. Bengaluru, India or Remote"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none"
               />
             </div>
 
@@ -437,7 +437,7 @@ const PostJobPage = () => {
               <select
                 value={formData.employmentType}
                 onChange={(e) => setFormData({ ...formData, employmentType: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none bg-white"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
               >
                 <option value="full-time">Full-Time</option>
                 <option value="internship">Internship</option>
@@ -455,7 +455,7 @@ const PostJobPage = () => {
                 required
                 value={formData.vacancies}
                 onChange={(e) => setFormData({ ...formData, vacancies: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none"
               />
             </div>
 
@@ -467,7 +467,7 @@ const PostJobPage = () => {
                 type="date"
                 value={formData.deadline}
                 onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none"
               />
             </div>
           </div>
@@ -482,7 +482,7 @@ const PostJobPage = () => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Describe the role responsibilities, projects, and work environment..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none"
             />
           </div>
         </div>

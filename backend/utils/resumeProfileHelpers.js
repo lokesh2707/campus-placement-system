@@ -8,11 +8,27 @@ const hashProjectSource = (title, description, technologies) => {
   return crypto.createHash("sha256").update(raw).digest("hex");
 };
 
+const hashExperienceSource = (role, company, description) => {
+  const raw = `${String(role || "").trim()}||${String(company || "").trim()}||${String(description || "").trim()}`;
+  return crypto.createHash("sha256").update(raw).digest("hex");
+};
+
 const isEnhancedOutdated = (project) => {
   if (!project?.aiEnhancedApproved || !project?.aiEnhancedDescription) return true;
   if (!project.aiEnhancedSourceHash) return true;
   const current = hashProjectSource(project.title, project.description, project.technologies);
   return current !== project.aiEnhancedSourceHash;
+};
+
+const isExperienceEnhancedOutdated = (experience) => {
+  if (!experience?.aiEnhancedApproved || !experience?.aiEnhancedDescription) return true;
+  if (!experience.aiEnhancedSourceHash) return true;
+  const current = hashExperienceSource(
+    experience.role,
+    experience.company,
+    experience.description
+  );
+  return current !== experience.aiEnhancedSourceHash;
 };
 
 const getEffectiveProjectDescription = (project) => {
@@ -25,6 +41,18 @@ const getEffectiveProjectDescription = (project) => {
     return String(project.aiEnhancedDescription).trim();
   }
   return String(project.description || "").trim();
+};
+
+const getEffectiveExperienceDescription = (experience) => {
+  if (!experience) return "";
+  if (
+    experience.aiEnhancedApproved &&
+    experience.aiEnhancedDescription &&
+    !isExperienceEnhancedOutdated(experience)
+  ) {
+    return String(experience.aiEnhancedDescription).trim();
+  }
+  return String(experience.description || "").trim();
 };
 
 /**
@@ -68,7 +96,10 @@ const validateOptionalHttpsUrl = (raw, { fieldLabel, allowedHosts } = {}) => {
 
 module.exports = {
   hashProjectSource,
+  hashExperienceSource,
   isEnhancedOutdated,
+  isExperienceEnhancedOutdated,
   getEffectiveProjectDescription,
+  getEffectiveExperienceDescription,
   validateOptionalHttpsUrl,
 };

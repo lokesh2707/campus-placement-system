@@ -3,23 +3,14 @@ const {
   categorizeSkills,
   deriveTitle,
   contactBits,
-  educationLine,
+  renderEducationHtml,
   bulletizeDescription,
   wrapDocument,
 } = require("./shared");
 
 const renderModernMinimalist = (s) => {
   const cats = categorizeSkills(s.skills || []);
-  const edu = educationLine(s);
   const contact = contactBits(s);
-  const competencies = [
-    cats.frontend.length ? "Frontend Development" : null,
-    cats.backend.length ? "Backend Development" : null,
-    "API Integration",
-    cats.database.length ? "Database Design" : null,
-    "Authentication",
-    "Responsive UI",
-  ].filter(Boolean);
 
   const experience = (s.experience || []).filter((e) => e.role && e.company);
   const projects = (s.projects || []).filter((p) => p.title);
@@ -38,12 +29,6 @@ const renderModernMinimalist = (s) => {
     ${
       s.professionalSummary
         ? `<h2>About Me</h2><p>${escapeHtml(s.professionalSummary)}</p>`
-        : ""
-    }
-
-    ${
-      competencies.length
-        ? `<h2>Core Competencies</h2><p>${competencies.map(escapeHtml).join(" | ")}</p>`
         : ""
     }
 
@@ -86,8 +71,7 @@ const renderModernMinimalist = (s) => {
         : ""
     }
 
-    <h2>Education</h2>
-    <p>${[edu.degreeDept, edu.school, edu.year, edu.cgpa].filter(Boolean).map(escapeHtml).join(" | ")}</p>
+    ${renderEducationHtml(s)}
   `;
 
   return wrapDocument(s.name || "Resume", body, extra);

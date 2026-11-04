@@ -2,14 +2,13 @@ const {
   escapeHtml,
   categorizeSkills,
   contactBits,
-  educationLine,
+  renderEducationHtml,
   bulletizeDescription,
   wrapDocument,
 } = require("./shared");
 
 const renderCorporateExperienced = (s) => {
   const cats = categorizeSkills(s.skills || []);
-  const edu = educationLine(s);
   const contact = contactBits(s);
   const experience = (s.experience || []).filter((e) => e.role && e.company);
   const projects = (s.projects || []).filter((p) => p.title);
@@ -74,8 +73,7 @@ const renderCorporateExperienced = (s) => {
         : ""
     }
 
-    <h2>Education</h2>
-    <p>${[edu.degreeDept, edu.school, edu.year].filter(Boolean).map(escapeHtml).join(" | ")}</p>
+    ${renderEducationHtml(s)}
 
     ${
       certs.length

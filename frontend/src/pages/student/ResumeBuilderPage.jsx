@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   AlertCircle,
   LayoutTemplate,
+  Sparkles,
 } from "lucide-react";
 
 const TEMPLATE_LABELS = {
@@ -33,6 +34,13 @@ const emptyForm = {
   batch: "",
   cgpa: "",
   instituteName: "",
+  collegeStartYear: "",
+  intermediateName: "",
+  intermediateDuration: "",
+  schoolName: "",
+  schoolDuration: "",
+  tenthPercentage: "",
+  twelfthPercentage: "",
   professionalSummary: "",
   githubUrl: "",
   linkedinUrl: "",
@@ -49,6 +57,8 @@ const ResumeBuilderPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const draft = location.state?.profileDraft || null;
+  const replaceResumeId = location.state?.replaceResumeId || null;
+  const updatingResume = Boolean(location.state?.updatingResume && replaceResumeId);
 
   const [form, setForm] = useState(emptyForm);
   const [skillDraft, setSkillDraft] = useState("");
@@ -57,8 +67,24 @@ const ResumeBuilderPage = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [mobilePane, setMobilePane] = useState("editor");
+  const [showFileNameModal, setShowFileNameModal] = useState(false);
+  const [downloadFileName, setDownloadFileName] = useState("");
+  const [improvingSummary, setImprovingSummary] = useState(false);
+  const [summaryAiSuccess, setSummaryAiSuccess] = useState(false);
+  const [improvingProjectIndex, setImprovingProjectIndex] = useState(null);
 
   const validTemplate = Boolean(TEMPLATE_LABELS[templateId]);
+
+  const buildFallbackSummary = (profileLike) => {
+    const degree = profileLike.degree || "B.Tech";
+    const dept = profileLike.department || "Computer Science";
+    const skills = (profileLike.skills || []).slice(0, 6).join(", ");
+    const batch = profileLike.batch ? ` (batch ${profileLike.batch})` : "";
+    const skillPart = skills
+      ? ` Skilled in ${skills}.`
+      : " Focused on building reliable software applications.";
+    return `${degree} student in ${dept}${batch} seeking a software development role.${skillPart}`;
+  };
 
   useEffect(() => {
     // Template gallery page has no :templateId — skip load there
@@ -71,10 +97,13 @@ const ResumeBuilderPage = () => {
         });
         const data = await res.json();
         if (!mounted) return;
+
+        let nextForm = null;
         if (data.success && data.profile) {
           const p = data.profile;
           // Prefer freshly saved API values; fall back to navigation draft for race/cache gaps
-          setForm({
+          // professionalSummary is NOT taken from profile — generated for the resume only
+          nextForm = {
             name: p.user?.name || draft?.name || user?.name || "",
             phone: p.phone || draft?.phone || "",
             rollNumber: p.rollNumber || draft?.rollNumber || "",
@@ -86,8 +115,19 @@ const ResumeBuilderPage = () => {
               (typeof p.institute === "object" ? p.institute?.name || "" : "") ||
               draft?.instituteName ||
               "",
-            professionalSummary:
-              p.professionalSummary || draft?.professionalSummary || "",
+            collegeStartYear:
+              p.academicHistory?.collegeStartYear ?? draft?.collegeStartYear ?? "",
+            intermediateName:
+              p.academicHistory?.intermediateName || draft?.intermediateName || "",
+            intermediateDuration:
+              p.academicHistory?.intermediateDuration || draft?.intermediateDuration || "",
+            schoolName: p.academicHistory?.schoolName || draft?.schoolName || "",
+            schoolDuration: p.academicHistory?.schoolDuration || draft?.schoolDuration || "",
+            tenthPercentage:
+              p.academicHistory?.tenthPercentage ?? draft?.tenthPercentage ?? "",
+            twelfthPercentage:
+              p.academicHistory?.twelfthPercentage ?? draft?.twelfthPercentage ?? "",
+            professionalSummary: "",
             githubUrl: p.githubUrl || draft?.githubUrl || "",
             linkedinUrl: p.linkedinUrl || draft?.linkedinUrl || "",
             portfolioUrl: p.portfolioUrl || draft?.portfolioUrl || "",
@@ -115,24 +155,34 @@ const ResumeBuilderPage = () => {
               (p.certifications && p.certifications.length ? p.certifications : null) ||
               draft?.certifications ||
               [],
-          });
+          };
         } else if (draft) {
-          setForm((prev) => ({ ...prev, ...draft, name: draft.name || user?.name || "" }));
+          nextForm = {
+            ...emptyForm,
+            ...draft,
+            name: draft.name || user?.name || "",
+            professionalSummary: "",
+          };
         } else {
-          setForm((prev) => ({
-            ...prev,
-            name: user?.name || "",
-          }));
+          nextForm = { ...emptyForm, name: user?.name || "" };
         }
+
+        nextForm.professionalSummary = buildFallbackSummary(nextForm);
+        setForm(nextForm);
+        setLoading(false);
       } catch (err) {
         if (mounted) {
           if (draft) {
-            setForm((prev) => ({ ...prev, ...draft, name: draft.name || user?.name || "" }));
+            setForm({
+              ...emptyForm,
+              ...draft,
+              name: draft.name || user?.name || "",
+              professionalSummary: buildFallbackSummary(draft),
+            });
           } else {
             setError("Failed to load profile for resume builder.");
           }
         }
-      } finally {
         if (mounted) setLoading(false);
       }
     };
@@ -171,13 +221,106 @@ const ResumeBuilderPage = () => {
     setSkillDraft("");
   };
 
+  const handleImproveSummary = async () => {
+    setImprovingSummary(true);
+    setError("");
+    setSummaryAiSuccess(false);
+    try {
+      const res = await fetch("/api/resume-builder/ai/summary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentSummary: form.professionalSummary,
+          name: form.name,
+          degree: form.degree,
+          department: form.department,
+          batch: form.batch,
+          cgpa: form.cgpa,
+          skills: form.skills,
+          projects: form.projects,
+          experience: form.experience,
+          certifications: form.certifications,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to improve summary with AI");
+      }
+      if (data.summary) {
+        updateField("professionalSummary", data.summary);
+        setSummaryAiSuccess(true);
+        setTimeout(() => setSummaryAiSuccess(false), 4000);
+      }
+    } catch (err) {
+      setError(err.message || "Failed to improve summary with AI. Please try again.");
+    } finally {
+      setImprovingSummary(false);
+    }
+  };
+
+  const handleImproveProjectDescription = async (index) => {
+    const proj = form.projects[index];
+    if (!proj?.title?.trim() || !proj?.description?.trim()) {
+      setError("Add a project title and description before improving with AI.");
+      return;
+    }
+    setImprovingProjectIndex(index);
+    setError("");
+    try {
+      const res = await fetch("/api/resume-builder/ai/project-description", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: proj.title,
+          description: proj.description,
+          technologies: proj.technologies || [],
+          projectIndex: index,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to improve project description");
+      if (data.improvedDescription) {
+        updateProject(index, "description", data.improvedDescription);
+      }
+    } catch (err) {
+      setError(err.message || "Failed to improve project description with AI.");
+    } finally {
+      setImprovingProjectIndex(null);
+    }
+  };
+
+  const openGenerateModal = () => {
+    setError("");
+    setSuccess("");
+    const person = (form.name || user?.name || "My")
+      .trim()
+      .replace(/[<>:"/\\|?*]/g, "")
+      .replace(/\s+/g, "_")
+      .slice(0, 40);
+    setDownloadFileName(`${person || "My"}_Resume`);
+    setShowFileNameModal(true);
+  };
+
   const handleGenerate = async () => {
+    const rawName = String(downloadFileName || "").trim();
+    if (!rawName) {
+      setError("Enter a file name for your resume PDF.");
+      return;
+    }
+
+    setShowFileNameModal(false);
     setSaving(true);
     setError("");
     setSuccess("");
     try {
       const idempotencyKey = `gen-${templateId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const res = await fetch("/api/resume-builder/generate", {
+      let res = await fetch("/api/resume-builder/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -186,16 +329,76 @@ const ResumeBuilderPage = () => {
         body: JSON.stringify({
           templateId,
           idempotencyKey,
+          fileName: rawName,
+          ...(replaceResumeId ? { replaceResumeId } : {}),
           content: {
             ...form,
             snapshot: previewData,
           },
         }),
       });
-      const data = await res.json();
+      let data = await res.json();
+
+      // If replacing failed because the old resume was not found, automatically retry as a fresh new resume
+      if (!res.ok && (res.status === 404 || /not found/i.test(data?.message || "")) && replaceResumeId) {
+        const retryKey = `gen-${templateId}-${Date.now()}-fallback`;
+        res = await fetch("/api/resume-builder/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            templateId,
+            idempotencyKey: retryKey,
+            fileName: rawName,
+            content: {
+              ...form,
+              snapshot: previewData,
+            },
+          }),
+        });
+        data = await res.json();
+      }
+
       if (!res.ok) throw new Error(data.message || "Failed to generate resume");
-      setSuccess("Resume generated successfully. You can download it from your dashboard.");
-      setTimeout(() => navigate("/student/dashboard"), 1600);
+
+      const resumeId = data.resume?._id;
+      const fileName = data.resume?.fileName || `${rawName.replace(/\.pdf$/i, "")}.pdf`;
+
+      if (resumeId) {
+        const dlRes = await fetch(`/api/resume-builder/${resumeId}/download`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!dlRes.ok) {
+          throw new Error("Resume was created but download failed. Try again from your dashboard.");
+        }
+        const blob = await dlRes.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      setSuccess(
+        data.replaced || updatingResume
+          ? "Resume updated and download started."
+          : "Resume generated and download started."
+      );
+      setTimeout(() => {
+        if (updatingResume) {
+          navigate("/student/profile", {
+            replace: true,
+            state: { resumeUpdated: true },
+          });
+        } else {
+          navigate("/student/dashboard");
+        }
+      }, 1200);
     } catch (err) {
       setError(err.message || "Resume generation failed.");
     } finally {
@@ -222,17 +425,29 @@ const ResumeBuilderPage = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <p className="text-[11px] font-bold text-teal uppercase tracking-widest">Resume Builder</p>
+          <p className="text-[11px] font-bold text-teal uppercase tracking-widest">
+            {updatingResume ? "Update Resume" : "Resume Builder"}
+          </p>
           <h1 className="text-2xl font-display font-semibold text-ink">
             {TEMPLATE_LABELS[templateId]}
           </h1>
           <p className="text-xs text-ink-muted mt-1">
-            Edit on the left — preview updates instantly. Switching templates keeps your edits.
+            {updatingResume
+              ? "Review your latest profile details, then generate to replace your previous resume PDF."
+              : "Edit on the left — preview updates instantly. Switching templates keeps your edits."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
             to="/student/resume-builder"
+            state={
+              draft || replaceResumeId
+                ? {
+                    ...(draft ? { profileDraft: draft } : {}),
+                    ...(replaceResumeId ? { replaceResumeId, updatingResume: true } : {}),
+                  }
+                : undefined
+            }
             className="btn-secondary px-3 py-2 text-xs font-semibold rounded-xl inline-flex items-center gap-1.5"
           >
             <LayoutTemplate className="w-3.5 h-3.5" /> Change template
@@ -245,7 +460,7 @@ const ResumeBuilderPage = () => {
           </Link>
           <button
             type="button"
-            onClick={handleGenerate}
+            onClick={openGenerateModal}
             disabled={saving}
             className="px-4 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 disabled:opacity-60"
           >
@@ -255,16 +470,97 @@ const ResumeBuilderPage = () => {
               </>
             ) : (
               <>
-                <Save className="w-3.5 h-3.5" /> Save & Generate Resume
+                <Save className="w-3.5 h-3.5" />
+                {updatingResume ? "Replace & Download Resume" : "Save & Generate Resume"}
               </>
             )}
           </button>
         </div>
       </div>
 
+      {showFileNameModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4 backdrop-blur-[2px]"
+          onClick={() => !saving && setShowFileNameModal(false)}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl bg-white border border-sage p-6 shadow-xl font-body"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-widest text-teal">
+              {updatingResume ? "Replace" : "Generate"}
+            </p>
+            <p className="text-lg font-semibold text-ink mt-1 font-body">Name your PDF file</p>
+            <p className="text-sm text-ink-muted mt-1.5 leading-relaxed">
+              {updatingResume
+                ? "This will replace your previous resume file with one built from your latest profile."
+                : "Pick a clear name before we create and download your resume."}
+            </p>
+            <label
+              htmlFor="builder-resume-filename"
+              className="block text-xs font-semibold text-ink mt-5 mb-1.5"
+            >
+              File name
+            </label>
+            <div className="flex items-stretch rounded-xl border border-sage overflow-hidden focus-within:ring-2 focus-within:ring-teal bg-white">
+              <input
+                id="builder-resume-filename"
+                type="text"
+                autoFocus
+                value={downloadFileName}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setDownloadFileName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleGenerate();
+                  }
+                  if (e.key === "Escape") setShowFileNameModal(false);
+                }}
+                placeholder="e.g. Prasanth_Resume"
+                className="flex-1 px-3.5 py-3 text-sm text-ink focus:outline-none bg-transparent font-body"
+              />
+              <span className="px-3 flex items-center text-sm font-semibold text-ink-muted bg-paper border-l border-sage">
+                .pdf
+              </span>
+            </div>
+            <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFileNameModal(false)}
+                disabled={saving}
+                className="px-4 py-2.5 text-sm font-semibold rounded-xl border border-sage text-ink hover:bg-paper disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={saving}
+                className="px-5 py-2.5 bg-teal hover:bg-teal-deep text-white text-sm font-semibold rounded-xl disabled:opacity-60 inline-flex items-center justify-center gap-1.5"
+              >
+                {saving ? (
+                  <>
+                    <ButtonSpinner className="w-4 h-4" /> Generating...
+                  </>
+                ) : updatingResume ? (
+                  "Replace & Download"
+                ) : (
+                  "Generate & Download"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && (
-        <div className="mb-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" /> {error}
+        <div className="mb-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span className="wrap-break-word whitespace-pre-wrap leading-relaxed">{error}</span>
         </div>
       )}
       {success && (
@@ -327,14 +623,46 @@ const ResumeBuilderPage = () => {
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink mb-1">
-              Professional summary
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink">
+                Professional summary
+              </label>
+              <button
+                type="button"
+                onClick={handleImproveSummary}
+                disabled={improvingSummary}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-teal/10 hover:bg-teal/20 text-teal border border-teal/20 transition disabled:opacity-60 disabled:cursor-not-allowed shadow-2xs"
+                title="Improve professional summary with AI"
+              >
+                {improvingSummary ? (
+                  <>
+                    <ButtonSpinner className="w-3 h-3 text-teal" />
+                    <span>Improving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3 text-teal" />
+                    <span>Improve with AI</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <p className="text-[10px] text-ink-muted">
+                Prefills from your profile details. Edit for this resume only — not stored on your profile.
+              </p>
+              {summaryAiSuccess && (
+                <span className="text-[10px] font-semibold text-emerald-600 inline-flex items-center gap-1 shrink-0">
+                  <CheckCircle2 className="w-3 h-3" /> Improved!
+                </span>
+              )}
+            </div>
             <textarea
               rows={4}
               value={form.professionalSummary}
               onChange={(e) => updateField("professionalSummary", e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-sage text-xs bg-white"
+              className="w-full px-3 py-2 rounded-xl border border-sage text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal transition font-body"
+              placeholder="Brief professional summary..."
             />
           </div>
 
@@ -379,15 +707,37 @@ const ResumeBuilderPage = () => {
                 <input
                   value={p.title}
                   onChange={(e) => updateProject(idx, "title", e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg border border-sage text-xs"
+                  className="w-full px-2 py-1.5 rounded-lg border border-sage text-xs font-medium"
                   placeholder="Title"
                 />
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <label className="text-[10px] font-semibold text-ink-muted uppercase">Description</label>
+                  <button
+                    type="button"
+                    onClick={() => handleImproveProjectDescription(idx)}
+                    disabled={improvingProjectIndex === idx}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal hover:text-teal-deep disabled:opacity-50"
+                    title="Improve project description with AI"
+                  >
+                    {improvingProjectIndex === idx ? (
+                      <>
+                        <ButtonSpinner className="w-3 h-3 text-teal" />
+                        <span>Improving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3 text-teal" />
+                        <span>Improve with AI</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <textarea
                   rows={2}
                   value={p.description}
                   onChange={(e) => updateProject(idx, "description", e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg border border-sage text-xs"
-                  placeholder="Original description"
+                  className="w-full px-2 py-1.5 rounded-lg border border-sage text-xs bg-white"
+                  placeholder="Project description & key contributions..."
                 />
                 {p.aiEnhancedApproved && p.aiEnhancedDescription && (
                   <p className="text-[11px] text-emerald-700">

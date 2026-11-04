@@ -20,8 +20,6 @@
   body {
     max-width: 100%;
     overflow-x: hidden;
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
   }
 
   body {
@@ -237,9 +235,11 @@
   }
 
   /* Sleek custom scrollbar for modals & panels */
-  .modal-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(11, 95, 92, 0.25) transparent;
+  @supports (scrollbar-width: thin) {
+    .modal-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(11, 95, 92, 0.25) transparent;
+    }
   }
   .modal-scroll::-webkit-scrollbar {
     width: 6px;
@@ -261,13 +261,16 @@
   }
   .no-scrollbar {
     -ms-overflow-style: none;
-    scrollbar-width: none;
+  }
+  @supports (scrollbar-width: none) {
+    .no-scrollbar {
+      scrollbar-width: none;
+    }
   }
 
   .table-responsive {
     width: 100%;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 }
 

@@ -28,10 +28,22 @@ const GeneratedResumeSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    /** @deprecated legacy disk path; new resumes store PDF in fileData */
     relativePath: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
+    },
+    /** PDF binary stored in MongoDB */
+    fileData: {
+      type: Buffer,
+      default: undefined,
+      select: false,
+    },
+    fileSize: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     fileType: {
       type: String,

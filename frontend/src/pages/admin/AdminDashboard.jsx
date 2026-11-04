@@ -981,7 +981,7 @@ const AdminDashboard = () => {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="px-3.5 py-2 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none bg-white"
+                className="px-3.5 py-2 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
               >
                 <option value="">All Roles</option>
                 {ROLE_OPTIONS.map((r) => (
@@ -993,7 +993,7 @@ const AdminDashboard = () => {
               <select
                 value={activeFilter}
                 onChange={(e) => setActiveFilter(e.target.value)}
-                className="px-3.5 py-2 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none bg-white"
+                className="px-3.5 py-2 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
               >
                 <option value="">All Statuses</option>
                 <option value="true">Active</option>
@@ -1057,7 +1057,7 @@ const AdminDashboard = () => {
                                 value={u.role}
                                 disabled={actionBusy === `role-${u._id}`}
                                 onChange={(e) => handleRoleChange(u, e.target.value)}
-                                className="px-2 py-1.5 rounded-lg border border-sage text-xs bg-white focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none disabled:opacity-50"
+                                className="px-2 py-1.5 rounded-lg border border-sage text-xs bg-white focus:ring-2 focus:ring-teal focus:outline-none disabled:opacity-50"
                               >
                                 {ROLE_OPTIONS.map((r) => (
                                   <option key={r} value={r}>

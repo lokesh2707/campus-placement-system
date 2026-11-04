@@ -2,14 +2,13 @@ const {
   escapeHtml,
   categorizeSkills,
   contactBits,
-  educationLine,
+  renderEducationHtml,
   bulletizeDescription,
   wrapDocument,
 } = require("./shared");
 
 const renderFresherGraduate = (s) => {
   const cats = categorizeSkills(s.skills || []);
-  const edu = educationLine(s);
   const contact = contactBits(s);
   const projects = (s.projects || []).filter((p) => p.title);
   const internships = (s.experience || []).filter((e) => e.role && e.company);
@@ -74,10 +73,7 @@ const renderFresherGraduate = (s) => {
         : ""
     }
 
-    <h2>Education</h2>
-    <p class="item-title">${escapeHtml(edu.degreeDept || "B.Tech")}</p>
-    <p>${[edu.school, edu.year].filter(Boolean).map(escapeHtml).join(" | ")}</p>
-    ${edu.cgpa ? `<p>${escapeHtml(edu.cgpa)}</p>` : ""}
+    ${renderEducationHtml(s)}
 
     ${
       certs.length

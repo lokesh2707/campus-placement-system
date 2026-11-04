@@ -20,7 +20,8 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
+  Pencil,
+  Eye,
   Wand2,
 } from "lucide-react";
 import { ProfileSkeleton, ButtonSpinner } from "../../components/Loader";
@@ -35,6 +36,93 @@ const PROFILE_TABS = [
   "resume",
 ];
 
+/** Text inputs that only accept whole numbers */
+const digitsOnly = (value, maxLen = 4) =>
+  String(value ?? "")
+    .replace(/\D/g, "")
+    .slice(0, maxLen);
+
+/** Text inputs that only accept decimals (one dot) */
+const decimalOnly = (value, maxLen = 6) => {
+  const cleaned = String(value ?? "").replace(/[^\d.]/g, "");
+  const dot = cleaned.indexOf(".");
+  const normalized =
+    dot === -1
+      ? cleaned
+      : cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, "");
+  return normalized.slice(0, maxLen);
+};
+
+const SKILL_SUGGESTIONS = {
+  languages: [
+    "Python",
+    "Java",
+    "JavaScript",
+    "TypeScript",
+    "C",
+    "C++",
+    "C#",
+    "Go",
+    "Kotlin",
+    "Swift",
+    "PHP",
+    "Ruby",
+    "Rust",
+    "SQL",
+    "R",
+    "Scala",
+  ],
+  frameworks: [
+    "React",
+    "Next.js",
+    "Angular",
+    "Vue.js",
+    "Node.js",
+    "Express",
+    "NestJS",
+    "Spring Boot",
+    "Django",
+    "Flask",
+    "FastAPI",
+    "Laravel",
+    ".NET",
+    "Flutter",
+    "React Native",
+    "Tailwind CSS",
+    "Redux",
+  ],
+  databases: [
+    "MySQL",
+    "PostgreSQL",
+    "MongoDB",
+    "Redis",
+    "SQLite",
+    "Oracle",
+    "SQL Server",
+    "Firebase",
+    "DynamoDB",
+    "Elasticsearch",
+  ],
+  tools: [
+    "Git",
+    "GitHub",
+    "Docker",
+    "Kubernetes",
+    "Linux",
+    "Postman",
+    "AWS",
+    "Azure",
+    "GCP",
+    "Jenkins",
+    "CI/CD",
+    "VS Code",
+    "Jira",
+    "Figma",
+    "Nginx",
+    "Terraform",
+  ],
+};
+
 const ProfilePage = () => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
@@ -46,6 +134,9 @@ const ProfilePage = () => {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isEditing, setIsEditing] = useState(
+    () => Boolean(searchParams.get("redirect") || searchParams.get("edit") === "1")
+  );
   const redirectTimerRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState("personal");
@@ -69,11 +160,16 @@ const ProfilePage = () => {
     department: "Computer Science & Engineering",
     degree: "B.Tech",
     instituteName: "",
-    batch: 2026,
-    cgpa: 8.0,
-    backlogs: 0,
-    activeBacklogs: 0,
+    batch: "2026",
+    cgpa: "8.0",
+    backlogs: "0",
+    activeBacklogs: "0",
     academicHistory: {
+      collegeStartYear: "",
+      intermediateName: "",
+      intermediateDuration: "",
+      schoolName: "",
+      schoolDuration: "",
       tenthPercentage: "",
       twelfthPercentage: "",
       diplomaPercentage: "",
@@ -93,7 +189,6 @@ const ProfilePage = () => {
     githubUrl: "",
     linkedinUrl: "",
     portfolioUrl: "",
-    professionalSummary: "",
   });
 
   // Inputs for adding items
@@ -107,10 +202,14 @@ const ProfilePage = () => {
   const [resumeFile, setResumeFile] = useState(null);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [resumeMsg, setResumeMsg] = useState("");
-
-  // AI draft state (not persisted until Save Profile)
-  const [summaryGenerating, setSummaryGenerating] = useState(false);
+  const [generatedResumes, setGeneratedResumes] = useState([]);
+  const [downloadingResumeId, setDownloadingResumeId] = useState(null);
+  const [downloadTarget, setDownloadTarget] = useState(null); // generated resume object
+  const [downloadFileName, setDownloadFileName] = useState("");
+  const [viewingResumeId, setViewingResumeId] = useState(null);
+  const [experienceImprovingIndex, setExperienceImprovingIndex] = useState(null);
   const [projectImprovingIndex, setProjectImprovingIndex] = useState(null);
+  const [showResumeUpdatePrompt, setShowResumeUpdatePrompt] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -127,12 +226,19 @@ const ProfilePage = () => {
 
     const fetchProfile = async () => {
       try {
-        const res = await fetch("/api/students/profile/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const headers = { Authorization: `Bearer ${token}` };
+        const [res, genRes] = await Promise.all([
+          fetch("/api/students/profile/me", { headers }),
+          fetch("/api/resume-builder/my-resumes", { headers }),
+        ]);
         const data = await res.json();
+        const genData = await genRes.json();
 
         if (!isMounted) return;
+
+        if (genData.success) {
+          setGeneratedResumes(genData.resumes || []);
+        }
 
         // Always start from registration identity (name / email / institute / roll)
         const registrationDefaults = {
@@ -151,11 +257,16 @@ const ProfilePage = () => {
           department: "Computer Science & Engineering",
           degree: "B.Tech",
           instituteName: resolveInstituteName(null),
-          batch: 2026,
-          cgpa: 8.0,
-          backlogs: 0,
-          activeBacklogs: 0,
+          batch: "2026",
+          cgpa: "8.0",
+          backlogs: "0",
+          activeBacklogs: "0",
           academicHistory: {
+            collegeStartYear: "",
+            intermediateName: "",
+            intermediateDuration: "",
+            schoolName: "",
+            schoolDuration: "",
             tenthPercentage: "",
             twelfthPercentage: "",
             diplomaPercentage: "",
@@ -175,11 +286,11 @@ const ProfilePage = () => {
           githubUrl: "",
           linkedinUrl: "",
           portfolioUrl: "",
-          professionalSummary: "",
         };
 
         if (data.success && data.profile) {
           const p = data.profile;
+          const instituteName = resolveInstituteName(p.institute);
           setFormData({
             ...registrationDefaults,
             name: p.user?.name || user?.name || "",
@@ -196,15 +307,35 @@ const ProfilePage = () => {
             rollNumber: p.rollNumber || "",
             department: p.department || "Computer Science & Engineering",
             degree: p.degree || "B.Tech",
-            instituteName: resolveInstituteName(p.institute),
-            batch: p.batch || 2026,
-            cgpa: p.cgpa !== undefined && p.cgpa !== null ? p.cgpa : 8.0,
-            backlogs: p.backlogs || 0,
-            activeBacklogs: p.activeBacklogs || 0,
+            instituteName,
+            batch: p.batch != null ? String(p.batch) : "2026",
+            cgpa: p.cgpa !== undefined && p.cgpa !== null ? String(p.cgpa) : "8.0",
+            backlogs: p.backlogs != null ? String(p.backlogs) : "0",
+            activeBacklogs: p.activeBacklogs != null ? String(p.activeBacklogs) : "0",
             academicHistory: {
-              tenthPercentage: p.academicHistory?.tenthPercentage ?? "",
-              twelfthPercentage: p.academicHistory?.twelfthPercentage ?? "",
-              diplomaPercentage: p.academicHistory?.diplomaPercentage ?? "",
+              collegeStartYear:
+                p.academicHistory?.collegeStartYear != null
+                  ? String(p.academicHistory.collegeStartYear)
+                  : "",
+              intermediateName: p.academicHistory?.intermediateName || "",
+              intermediateDuration: p.academicHistory?.intermediateDuration || "",
+              schoolName: p.academicHistory?.schoolName || "",
+              schoolDuration: p.academicHistory?.schoolDuration || "",
+              tenthPercentage:
+                p.academicHistory?.tenthPercentage != null &&
+                p.academicHistory?.tenthPercentage !== ""
+                  ? String(p.academicHistory.tenthPercentage)
+                  : "",
+              twelfthPercentage:
+                p.academicHistory?.twelfthPercentage != null &&
+                p.academicHistory?.twelfthPercentage !== ""
+                  ? String(p.academicHistory.twelfthPercentage)
+                  : "",
+              diplomaPercentage:
+                p.academicHistory?.diplomaPercentage != null &&
+                p.academicHistory?.diplomaPercentage !== ""
+                  ? String(p.academicHistory.diplomaPercentage)
+                  : "",
             },
             skills: p.skills || [],
             technicalSkills: p.technicalSkills || [],
@@ -218,7 +349,12 @@ const ProfilePage = () => {
               aiEnhancedApproved: Boolean(proj.aiEnhancedApproved),
               aiEnhancedSourceHash: proj.aiEnhancedSourceHash || "",
             })),
-            experience: p.experience || [],
+            experience: (p.experience || []).map((exp) => ({
+              ...exp,
+              aiEnhancedDescription: exp.aiEnhancedDescription || "",
+              aiEnhancedApproved: Boolean(exp.aiEnhancedApproved),
+              aiEnhancedSourceHash: exp.aiEnhancedSourceHash || "",
+            })),
             certifications: p.certifications || [],
             placementStatus: p.placementStatus || "seeking",
             resumeUrl: p.resumeUrl || "",
@@ -226,7 +362,6 @@ const ProfilePage = () => {
             githubUrl: p.githubUrl || "",
             linkedinUrl: p.linkedinUrl || "",
             portfolioUrl: p.portfolioUrl || "",
-            professionalSummary: p.professionalSummary || "",
           });
         } else {
           setFormData(registrationDefaults);
@@ -256,21 +391,140 @@ const ProfilePage = () => {
     };
   }, [token, user]);
 
+  useEffect(() => {
+    if (!location.state?.resumeUpdated) return;
+    setSuccessMsg("Resume updated with your latest profile details.");
+    setActiveTab("resume");
+    setIsEditing(false);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.pathname, navigate]);
+
   // Skill management helpers
+  const rebuildFlatSkills = (nextCategories) => {
+    const merged = [
+      ...(nextCategories.languages || formData.languages),
+      ...(nextCategories.frameworks || formData.frameworks),
+      ...(nextCategories.databases || formData.databases),
+      ...(nextCategories.tools || formData.tools),
+    ];
+    return Array.from(new Set(merged));
+  };
+
   const handleAddCategorySkill = (category, value, setter) => {
     if (!value.trim()) return;
     const trimmed = value.trim();
     if (!formData[category].includes(trimmed)) {
       const updated = [...formData[category], trimmed];
-      const allSkills = Array.from(new Set([...formData.skills, trimmed]));
-      setFormData({ ...formData, [category]: updated, skills: allSkills });
+      const next = { ...formData, [category]: updated };
+      setFormData({ ...next, skills: rebuildFlatSkills({ [category]: updated }) });
     }
-    setter("");
+    if (setter) setter("");
   };
 
   const handleRemoveCategorySkill = (category, item) => {
     const updated = formData[category].filter((x) => x !== item);
-    setFormData({ ...formData, [category]: updated });
+    const next = { ...formData, [category]: updated };
+    setFormData({ ...next, skills: rebuildFlatSkills({ [category]: updated }) });
+  };
+
+  const toggleSuggestedSkill = (category, skill) => {
+    if (formData[category].includes(skill)) {
+      handleRemoveCategorySkill(category, skill);
+    } else {
+      handleAddCategorySkill(category, skill, null);
+    }
+  };
+
+  const updateAcademicField = (key, value) => {
+    setFormData({
+      ...formData,
+      academicHistory: {
+        ...formData.academicHistory,
+        [key]: value,
+      },
+    });
+  };
+
+  const formatTemplateLabel = (templateId) =>
+    String(templateId || "resume")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const suggestDownloadFileName = (resume) => {
+    const stored = String(resume?.fileName || "")
+      .replace(/\.pdf$/i, "")
+      .trim();
+    const looksSystemName =
+      !stored ||
+      /^resume[-_]?v?\d+/i.test(stored) ||
+      /\d{10,}/.test(stored);
+    if (!looksSystemName) return stored.slice(0, 80);
+
+    const person = String(formData.name || user?.name || "My_Resume")
+      .trim()
+      .replace(/[<>:"/\\|?*]/g, "")
+      .replace(/\s+/g, "_")
+      .slice(0, 40);
+    return `${person || "My"}_Resume`;
+  };
+
+  const openDownloadModal = (resume) => {
+    setDownloadFileName(suggestDownloadFileName(resume));
+    setDownloadTarget(resume);
+    setErrorMsg("");
+  };
+
+  const handleViewGeneratedResume = async (resume) => {
+    if (!resume?._id) return;
+    setViewingResumeId(resume._id);
+    setErrorMsg("");
+    try {
+      const res = await fetch(`/api/resume-builder/${resume._id}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to open resume preview.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to open resume preview.");
+    } finally {
+      setViewingResumeId(null);
+    }
+  };
+
+  const confirmDownloadGeneratedResume = async () => {
+    if (!downloadTarget?._id) return;
+    const rawName = String(downloadFileName || "").trim();
+    if (!rawName) {
+      setErrorMsg("Enter a file name to save the resume.");
+      return;
+    }
+    const safeName = `${rawName.replace(/\.pdf$/i, "").replace(/[<>:"/\\|?*]/g, "").trim() || "resume"}.pdf`;
+
+    setDownloadingResumeId(downloadTarget._id);
+    setErrorMsg("");
+    try {
+      const res = await fetch(`/api/resume-builder/${downloadTarget._id}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to download generated resume.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = safeName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setDownloadTarget(null);
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to download generated resume.");
+    } finally {
+      setDownloadingResumeId(null);
+    }
   };
 
   // Projects helpers
@@ -297,38 +551,16 @@ const ProfilePage = () => {
   const handleUpdateProject = (index, field, value) => {
     const updated = [...formData.projects];
     updated[index] = { ...updated[index], [field]: value };
-    // Editing original description invalidates prior AI approval until re-accepted
-    if (field === "description" || field === "title" || field === "technologies") {
+    if (field === "description" || field === "title") {
       updated[index].aiEnhancedApproved = false;
     }
     setFormData({ ...formData, projects: updated });
   };
 
-  const handleGenerateSummary = async () => {
-    setSummaryGenerating(true);
-    setErrorMsg("");
-    try {
-      const res = await fetch("/api/resume-builder/ai/summary", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "AI summary generation failed");
-      setFormData((prev) => ({ ...prev, professionalSummary: data.summary || prev.professionalSummary }));
-    } catch (err) {
-      setErrorMsg(err.message || "AI generation failed. Please try again later.");
-    } finally {
-      setSummaryGenerating(false);
-    }
-  };
-
   const handleImproveProject = async (index) => {
     const proj = formData.projects[index];
     if (!proj?.title?.trim() || !proj?.description?.trim()) {
-      setErrorMsg("Add a project title and original description before improving with AI.");
+      setErrorMsg("Add a project title and description before improving with AI.");
       return;
     }
     setProjectImprovingIndex(index);
@@ -366,10 +598,15 @@ const ProfilePage = () => {
 
   const handleApproveProjectEnhancement = (index) => {
     const updated = [...formData.projects];
-    if (!updated[index]?.aiEnhancedDescription?.trim()) return;
+    const aiText = String(updated[index]?.aiEnhancedDescription || "").trim();
+    if (!aiText) return;
+    // Put AI text into the main profile description (shown in view mode + resume)
     updated[index] = {
       ...updated[index],
-      aiEnhancedApproved: true,
+      description: aiText,
+      aiEnhancedDescription: "",
+      aiEnhancedApproved: false,
+      aiEnhancedSourceHash: "",
     };
     setFormData({ ...formData, projects: updated });
   };
@@ -387,14 +624,80 @@ const ProfilePage = () => {
       ...formData,
       experience: [
         ...formData.experience,
-        { role: "", company: "", duration: "", description: "" },
+        {
+          role: "",
+          company: "",
+          duration: "",
+          description: "",
+          aiEnhancedDescription: "",
+          aiEnhancedApproved: false,
+          aiEnhancedSourceHash: "",
+        },
       ],
     });
   };
 
   const handleUpdateExperience = (index, field, value) => {
     const updated = [...formData.experience];
-    updated[index][field] = value;
+    updated[index] = { ...updated[index], [field]: value };
+    if (field === "description" || field === "role" || field === "company") {
+      updated[index].aiEnhancedApproved = false;
+    }
+    setFormData({ ...formData, experience: updated });
+  };
+
+  const handleImproveExperience = async (index) => {
+    const exp = formData.experience[index];
+    if (!exp?.role?.trim() || !exp?.description?.trim()) {
+      setErrorMsg("Add a role and description before improving with AI.");
+      return;
+    }
+    setExperienceImprovingIndex(index);
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/resume-builder/ai/experience-description", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          role: exp.role,
+          company: exp.company,
+          duration: exp.duration,
+          description: exp.description,
+          experienceIndex: index,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "AI experience improvement failed");
+      const updated = [...formData.experience];
+      updated[index] = {
+        ...updated[index],
+        aiEnhancedDescription: data.improvedDescription || "",
+        aiEnhancedApproved: false,
+        aiEnhancedSourceHash: data.sourceHash || "",
+      };
+      setFormData({ ...formData, experience: updated });
+    } catch (err) {
+      setErrorMsg(err.message || "AI generation failed. Please try again later.");
+    } finally {
+      setExperienceImprovingIndex(null);
+    }
+  };
+
+  const handleApproveExperienceEnhancement = (index) => {
+    const updated = [...formData.experience];
+    const aiText = String(updated[index]?.aiEnhancedDescription || "").trim();
+    if (!aiText) return;
+    // Put AI text into the main profile description (shown in view mode + resume)
+    updated[index] = {
+      ...updated[index],
+      description: aiText,
+      aiEnhancedDescription: "",
+      aiEnhancedApproved: false,
+      aiEnhancedSourceHash: "",
+    };
     setFormData({ ...formData, experience: updated });
   };
 
@@ -550,8 +853,14 @@ const ProfilePage = () => {
   // Explicit save only — never triggered by incidental form submit / Enter key
   // options.redirectTo: navigate after save (default dashboard). Use null to skip redirect.
   const saveProfile = async (options = {}) => {
-    const { redirectTo = searchParams.get("redirect") || "/student/dashboard", silent = false } =
-      options;
+    // Ignore synthetic click events when Save button uses onClick={saveProfile}
+    const opts =
+      options && typeof options === "object" && !options.nativeEvent ? options : {};
+    const {
+      // Stay on profile by default so the "Update resume?" prompt can show
+      redirectTo = searchParams.get("redirect") || null,
+      silent = false,
+    } = opts;
 
     for (const tab of ["personal", "academic"]) {
       const validationError = validateTab(tab);
@@ -595,8 +904,12 @@ const ProfilePage = () => {
         githubUrl: normalizeOptionalHttpsUrl(formData.githubUrl),
         linkedinUrl: normalizeOptionalHttpsUrl(formData.linkedinUrl),
         portfolioUrl: normalizeOptionalHttpsUrl(formData.portfolioUrl),
-        professionalSummary: formData.professionalSummary || "",
         academicHistory: {
+          collegeStartYear: toOptionalNumber(formData.academicHistory?.collegeStartYear),
+          intermediateName: formData.academicHistory?.intermediateName || "",
+          intermediateDuration: formData.academicHistory?.intermediateDuration || "",
+          schoolName: formData.academicHistory?.schoolName || "",
+          schoolDuration: formData.academicHistory?.schoolDuration || "",
           tenthPercentage: toOptionalNumber(formData.academicHistory?.tenthPercentage),
           twelfthPercentage: toOptionalNumber(formData.academicHistory?.twelfthPercentage),
           diplomaPercentage: toOptionalNumber(formData.academicHistory?.diplomaPercentage),
@@ -633,6 +946,28 @@ const ProfilePage = () => {
         }, silent ? 400 : 1200);
       } else {
         setSuccessMsg("Profile saved.");
+        setIsEditing(false);
+        setActiveTab("personal");
+        if (!silent) {
+          let resumes = generatedResumes;
+          if (resumes.length === 0) {
+            try {
+              const genRes = await fetch("/api/resume-builder/my-resumes", {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const genData = await genRes.json();
+              if (genData.success) {
+                resumes = genData.resumes || [];
+                setGeneratedResumes(resumes);
+              }
+            } catch {
+              /* ignore — prompt only if we know a generated resume exists */
+            }
+          }
+          if (resumes.length > 0) {
+            setShowResumeUpdatePrompt(true);
+          }
+        }
       }
       return true;
     } catch (err) {
@@ -643,29 +978,49 @@ const ProfilePage = () => {
     }
   };
 
+  const buildProfileDraft = () => ({
+    githubUrl: formData.githubUrl,
+    linkedinUrl: formData.linkedinUrl,
+    portfolioUrl: formData.portfolioUrl,
+    name: formData.name,
+    phone: formData.phone,
+    skills: formData.skills,
+    projects: formData.projects,
+    experience: formData.experience,
+    certifications: formData.certifications,
+    degree: formData.degree,
+    department: formData.department,
+    batch: formData.batch,
+    cgpa: formData.cgpa,
+    rollNumber: formData.rollNumber,
+    instituteName: formData.instituteName,
+    collegeStartYear: formData.academicHistory?.collegeStartYear ?? "",
+    intermediateName: formData.academicHistory?.intermediateName || "",
+    intermediateDuration: formData.academicHistory?.intermediateDuration || "",
+    schoolName: formData.academicHistory?.schoolName || "",
+    schoolDuration: formData.academicHistory?.schoolDuration || "",
+    tenthPercentage: formData.academicHistory?.tenthPercentage ?? "",
+    twelfthPercentage: formData.academicHistory?.twelfthPercentage ?? "",
+  });
+
   const handleCreateResume = async () => {
     const ok = await saveProfile({ redirectTo: null, silent: true });
     if (!ok) return;
     navigate("/student/resume-builder", {
+      state: { profileDraft: buildProfileDraft() },
+    });
+  };
+
+  const handleUpdateExistingResume = () => {
+    const latest = generatedResumes[0];
+    setShowResumeUpdatePrompt(false);
+    // Templates gallery first; generating replaces the existing PDF in DB
+    navigate("/student/resume-builder", {
       state: {
-        profileDraft: {
-          githubUrl: formData.githubUrl,
-          linkedinUrl: formData.linkedinUrl,
-          portfolioUrl: formData.portfolioUrl,
-          professionalSummary: formData.professionalSummary,
-          name: formData.name,
-          phone: formData.phone,
-          skills: formData.skills,
-          projects: formData.projects,
-          experience: formData.experience,
-          certifications: formData.certifications,
-          degree: formData.degree,
-          department: formData.department,
-          batch: formData.batch,
-          cgpa: formData.cgpa,
-          rollNumber: formData.rollNumber,
-          instituteName: formData.instituteName,
-        },
+        profileDraft: buildProfileDraft(),
+        replaceResumeId: latest?._id || null,
+        preferredTemplateId: latest?.templateId || null,
+        updatingResume: Boolean(latest?._id),
       },
     });
   };
@@ -678,8 +1033,9 @@ const ProfilePage = () => {
   if (loading) return <ProfileSkeleton />;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-up">
-      {/* Page Header */}
+    <>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-up">
+        {/* Page Header */}
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -693,15 +1049,44 @@ const ProfilePage = () => {
             Academic & Placement Profile
           </h1>
           <p className="text-sm text-ink-muted mt-1">
-            Manage your personal data, verified coursework, categorized skills, and resume.
+            {isEditing
+              ? "Update your personal data, academics, skills, and resume."
+              : "Review your profile details and resume. Use Update Profile to make changes."}
           </p>
         </div>
-        <Link
-          to="/student/dashboard"
-          className="btn-secondary px-4 py-2 text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 self-start md:self-auto"
-        >
-          <LayoutDashboard className="w-3.5 h-3.5" /> Back to Dashboard
-        </Link>
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <Link
+            to="/student/dashboard"
+            className="btn-secondary px-4 py-2 text-xs font-semibold rounded-xl inline-flex items-center gap-1.5"
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" /> Back to Dashboard
+          </Link>
+          {isEditing ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditing(false);
+                setActiveTab("personal");
+                setErrorMsg("");
+              }}
+              className="btn-secondary px-4 py-2 text-xs font-semibold rounded-xl inline-flex items-center gap-1.5"
+            >
+              <Eye className="w-3.5 h-3.5" /> View Profile
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditing(true);
+                setActiveTab("personal");
+                setSuccessMsg("");
+              }}
+              className="px-4 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Update Profile
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Success Notification */}
@@ -738,6 +1123,285 @@ const ProfilePage = () => {
         </div>
       )}
 
+      {/* Modals rendered outside animated container to avoid backdrop clipping */}
+
+      {!isEditing && (
+        <div className="space-y-4 animate-fade-up font-body">
+          <div className="panel p-5 sm:p-6 shadow-xs bg-surface border-sage space-y-4">
+            <p className="text-base font-semibold text-ink border-b border-sage pb-3 font-body">
+              Personal
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Full Name</p>
+                <p className="text-ink mt-0.5">{formData.name || user?.name || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Email</p>
+                <p className="text-ink mt-0.5">{user?.email || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Phone</p>
+                <p className="text-ink mt-0.5">{formData.phone || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Roll Number</p>
+                <p className="text-ink mt-0.5 font-mono">{formData.rollNumber || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Institute</p>
+                <p className="text-ink mt-0.5">{formData.instituteName || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Placement Status</p>
+                <p className="text-ink mt-0.5 capitalize">{formData.placementStatus || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">GitHub</p>
+                <p className="text-ink mt-0.5 break-all">{formData.githubUrl || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">LinkedIn</p>
+                <p className="text-ink mt-0.5 break-all">{formData.linkedinUrl || "—"}</p>
+              </div>
+              <div className="sm:col-span-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Portfolio</p>
+                <p className="text-ink mt-0.5 break-all">{formData.portfolioUrl || "—"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel p-5 sm:p-6 shadow-xs bg-surface border-sage space-y-4">
+            <p className="text-base font-semibold text-ink border-b border-sage pb-3 font-body">
+              Academic
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Degree</p>
+                <p className="text-ink mt-0.5">{formData.degree || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Department</p>
+                <p className="text-ink mt-0.5">{formData.department || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Start Year</p>
+                <p className="text-ink mt-0.5">{formData.academicHistory?.collegeStartYear || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Graduation Year</p>
+                <p className="text-ink mt-0.5">{formData.batch || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">CGPA</p>
+                <p className="text-ink mt-0.5">{formData.cgpa || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">Backlogs</p>
+                <p className="text-ink mt-0.5">
+                  Total {formData.backlogs || 0} · Active {formData.activeBacklogs || 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">12th School</p>
+                <p className="text-ink mt-0.5">
+                  {formData.academicHistory?.intermediateName || "—"}
+                  {formData.academicHistory?.twelfthPercentage
+                    ? ` (${formData.academicHistory.twelfthPercentage}%)`
+                    : ""}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-muted">10th School</p>
+                <p className="text-ink mt-0.5">
+                  {formData.academicHistory?.schoolName || "—"}
+                  {formData.academicHistory?.tenthPercentage
+                    ? ` (${formData.academicHistory.tenthPercentage}%)`
+                    : ""}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel p-5 sm:p-6 shadow-xs bg-surface border-sage space-y-4">
+            <p className="text-base font-semibold text-ink border-b border-sage pb-3 font-body">
+              Skills ({formData.skills.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {formData.skills.length === 0 ? (
+                <span className="text-xs text-ink-muted">No skills added yet.</span>
+              ) : (
+                formData.skills.map((s) => (
+                  <span
+                    key={s}
+                    className="px-2.5 py-1 bg-paper border border-sage text-teal rounded-lg text-xs font-semibold"
+                  >
+                    {s}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="panel p-5 sm:p-6 shadow-xs bg-surface border-sage space-y-3">
+            <p className="text-base font-semibold text-ink border-b border-sage pb-3 font-body">
+              Projects ({formData.projects.length})
+            </p>
+            {formData.projects.length === 0 ? (
+              <p className="text-xs text-ink-muted">No projects added yet.</p>
+            ) : (
+              formData.projects.map((p, i) => (
+                <div key={`${p.title}-${i}`} className="p-3 rounded-xl border border-sage bg-paper">
+                  <p className="text-sm font-semibold text-ink">{p.title || `Project ${i + 1}`}</p>
+                  {p.description ? (
+                    <p className="text-xs text-ink-muted mt-1 whitespace-pre-wrap">{p.description}</p>
+                  ) : null}
+                  {(p.technologies || []).length > 0 && (
+                    <p className="text-[11px] text-teal mt-1">{p.technologies.join(", ")}</p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="panel p-5 sm:p-6 shadow-xs bg-surface border-sage space-y-3">
+            <p className="text-base font-semibold text-ink border-b border-sage pb-3 font-body">
+              Experience ({formData.experience.length})
+            </p>
+            {formData.experience.length === 0 ? (
+              <p className="text-xs text-ink-muted">No experience added yet.</p>
+            ) : (
+              formData.experience.map((e, i) => {
+                const displayDescription =
+                  e.aiEnhancedApproved && String(e.aiEnhancedDescription || "").trim()
+                    ? e.aiEnhancedDescription
+                    : e.description;
+                return (
+                <div key={`${e.role}-${i}`} className="p-3 rounded-xl border border-sage bg-paper">
+                  <p className="text-sm font-semibold text-ink">
+                    {e.role || "Role"} – {e.company || "Company"}
+                  </p>
+                  {e.duration ? <p className="text-[11px] text-ink-muted mt-0.5">{e.duration}</p> : null}
+                  {displayDescription ? (
+                    <p className="text-xs text-ink-muted mt-1 whitespace-pre-wrap">{displayDescription}</p>
+                  ) : null}
+                </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="panel p-5 sm:p-6 shadow-xs bg-surface border-sage space-y-4">
+            <p className="text-base font-semibold text-ink border-b border-sage pb-3 font-body">
+              Resume
+            </p>
+
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                Generated from templates
+              </h3>
+              {generatedResumes.length === 0 ? (
+                <p className="text-xs text-ink-muted">
+                  No generated resume yet. Create one from Update Profile → Resume.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {generatedResumes.map((r) => (
+                    <div
+                      key={r._id}
+                      className="p-4 bg-white rounded-xl border border-sage flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-teal-soft flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-teal" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink text-sm truncate font-body">
+                            {formatTemplateLabel(r.templateId)}
+                          </p>
+                          <p className="text-[11px] text-ink-muted mt-0.5">
+                            Version {r.version}
+                            {r.createdAt
+                              ? ` · ${new Date(r.createdAt).toLocaleDateString(undefined, {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}`
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleViewGeneratedResume(r)}
+                          disabled={viewingResumeId === r._id}
+                          title="Preview resume"
+                          className="flex-1 sm:flex-none px-3 py-2 border border-sage text-ink rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-paper disabled:opacity-60"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          {viewingResumeId === r._id ? "Opening..." : "Preview"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDownloadModal(r)}
+                          disabled={downloadingResumeId === r._id}
+                          className="flex-1 sm:flex-none px-3 py-2 bg-teal text-white rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-teal-deep disabled:opacity-60"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-sage">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                Uploaded resume
+              </h3>
+              {formData.resumeUrl ? (
+                <div className="p-4 bg-paper rounded-xl border border-sage flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-8 h-8 text-teal" />
+                    <div>
+                      <h3 className="font-semibold text-ink text-sm">
+                        {formData.resumeFileName || "candidate_resume.pdf"}
+                      </h3>
+                      <p className="text-[11px] text-ink-muted">Uploaded resume on your profile</p>
+                    </div>
+                  </div>
+                  <a
+                    href="/api/students/profile/resume"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-teal text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-teal-deep"
+                  >
+                    <Download className="w-3.5 h-3.5" /> View Resume
+                  </a>
+                </div>
+              ) : (
+                <p className="text-xs text-ink-muted">No separate uploaded PDF on file.</p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditing(true);
+                setActiveTab("resume");
+              }}
+              className="text-xs font-semibold text-teal hover:underline inline-flex items-center gap-1"
+            >
+              <Pencil className="w-3 h-3" /> Manage resume / create with templates
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isEditing && (
+        <>
       {/* Section progress */}
       <div className="mb-3 flex items-center justify-between text-xs text-ink-muted">
         <span>
@@ -933,7 +1597,7 @@ const ProfilePage = () => {
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
                   Portfolio URL
                 </label>
@@ -944,35 +1608,6 @@ const ProfilePage = () => {
                   placeholder="https://your-portfolio.example"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
                 />
-              </div>
-
-              <div className="md:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider">
-                    Professional Summary
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleGenerateSummary}
-                    disabled={summaryGenerating}
-                    className="text-xs font-semibold text-teal hover:underline inline-flex items-center gap-1 disabled:opacity-50"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {summaryGenerating ? "Generating..." : "Generate with AI"}
-                  </button>
-                </div>
-                <textarea
-                  rows={4}
-                  value={formData.professionalSummary}
-                  onChange={(e) =>
-                    setFormData({ ...formData, professionalSummary: e.target.value })
-                  }
-                  placeholder="Optional summary for your resume. Generate with AI, then edit and save with your profile."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                />
-                <p className="text-[11px] text-ink-muted mt-1">
-                  AI drafts are not saved until you click Save Profile on the final step.
-                </p>
               </div>
 
               <div>
@@ -1088,155 +1723,225 @@ const ProfilePage = () => {
 
         {/* TAB 2: ACADEMIC INFORMATION */}
         {activeTab === "academic" && (
-          <div className="panel p-6 shadow-xs space-y-5 bg-surface border-sage">
+          <div className="panel p-6 shadow-xs space-y-6 bg-surface border-sage">
             <h2 className="text-lg font-semibold text-ink border-b border-sage pb-3">
               Academic Information
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
-                  Degree / Program
-                </label>
-                <input
-                  type="text"
-                  value={formData.degree}
-                  onChange={(e) => setFormData({ ...formData, degree: e.target.value })}
-                  placeholder="e.g. B.Tech, M.Tech, MCA, B.Sc"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                />
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
-                  Department / Branch
-                </label>
-                <select
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                >
-                  <option value="Computer Science & Engineering">Computer Science & Engineering</option>
-                  <option value="Information Technology">Information Technology</option>
-                  <option value="Electronics & Communication">Electronics & Communication</option>
-                  <option value="Electrical Engineering">Electrical Engineering</option>
-                  <option value="Mechanical Engineering">Mechanical Engineering</option>
-                  <option value="Data Science & AI">Data Science & AI</option>
-                </select>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-teal">College / University</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    College Name
+                  </label>
+                  <input
+                    type="text"
+                    disabled
+                    value={formData.instituteName || "—"}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm bg-paper text-ink-muted cursor-not-allowed"
+                  />
+                  <p className="text-[10px] text-ink-muted mt-1">
+                    Taken from your registration institute — not editable here.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Start Year
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.academicHistory.collegeStartYear}
+                    onChange={(e) =>
+                      updateAcademicField("collegeStartYear", digitsOnly(e.target.value, 4))
+                    }
+                    placeholder="e.g. 2022"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Graduation Year
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.batch}
+                    onChange={(e) =>
+                      setFormData({ ...formData, batch: digitsOnly(e.target.value, 4) })
+                    }
+                    placeholder="e.g. 2026"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Degree / Program
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.degree}
+                    onChange={(e) => setFormData({ ...formData, degree: e.target.value })}
+                    placeholder="e.g. B.Tech, M.Tech, MCA, B.Sc"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Department / Branch
+                  </label>
+                  <select
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  >
+                    <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Electronics & Communication">Electronics & Communication</option>
+                    <option value="Electrical Engineering">Electrical Engineering</option>
+                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                    <option value="Data Science & AI">Data Science & AI</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Cumulative CGPA (0.0 - 10.0)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.cgpa}
+                    onChange={(e) =>
+                      setFormData({ ...formData, cgpa: decimalOnly(e.target.value, 5) })
+                    }
+                    placeholder="e.g. 8.5"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
+                {/* <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Total Backlogs
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.backlogs}
+                    onChange={(e) =>
+                      setFormData({ ...formData, backlogs: digitsOnly(e.target.value, 2) })
+                    }
+                    placeholder="e.g. 0"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div> */}
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Active Backlogs
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.activeBacklogs}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        activeBacklogs: digitsOnly(e.target.value, 2),
+                      })
+                    }
+                    placeholder="e.g. 0"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
-                  Graduation Batch Year
-                </label>
-                <input
-                  type="number"
-                  min="2000"
-                  max="2050"
-                  required
-                  value={formData.batch}
-                  onChange={(e) =>
-                    setFormData({ ...formData, batch: parseInt(e.target.value, 10) || 2026 })
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                />
+            <div className="space-y-3 border-t border-sage pt-5">
+              <h3 className="text-sm font-semibold text-teal">Higher Secondary (12th)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    School / College Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.academicHistory.intermediateName}
+                    onChange={(e) => updateAcademicField("intermediateName", e.target.value)}
+                    placeholder="e.g. XYZ Junior College"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Duration
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.academicHistory.intermediateDuration}
+                    onChange={(e) => updateAcademicField("intermediateDuration", e.target.value)}
+                    placeholder="e.g. 2020 – 2022"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Percentage
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.academicHistory.twelfthPercentage}
+                    onChange={(e) =>
+                      updateAcademicField("twelfthPercentage", decimalOnly(e.target.value, 6))
+                    }
+                    placeholder="e.g. 88.0"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
-                  Cumulative CGPA (0.0 - 10.0)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="10"
-                  required
-                  value={formData.cgpa}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cgpa: parseFloat(e.target.value) || 0 })
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
-                  Total Backlogs
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="30"
-                  value={formData.backlogs}
-                  onChange={(e) =>
-                    setFormData({ ...formData, backlogs: parseInt(e.target.value, 10) || 0 })
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
-                  Active Backlogs
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="30"
-                  value={formData.activeBacklogs}
-                  onChange={(e) =>
-                    setFormData({ ...formData, activeBacklogs: parseInt(e.target.value, 10) || 0 })
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
-                  Secondary (10th) Percentage
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={formData.academicHistory.tenthPercentage}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      academicHistory: {
-                        ...formData.academicHistory,
-                        tenthPercentage: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="e.g. 91.5"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
-                  Higher Secondary (12th) Percentage
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={formData.academicHistory.twelfthPercentage}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      academicHistory: {
-                        ...formData.academicHistory,
-                        twelfthPercentage: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="e.g. 88.0"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
-                />
+            <div className="space-y-3 border-t border-sage pt-5">
+              <h3 className="text-sm font-semibold text-teal">Secondary (10th)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    School Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.academicHistory.schoolName}
+                    onChange={(e) => updateAcademicField("schoolName", e.target.value)}
+                    placeholder="e.g. ABC High School"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Duration
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.academicHistory.schoolDuration}
+                    onChange={(e) => updateAcademicField("schoolDuration", e.target.value)}
+                    placeholder="e.g. 2018 – 2020"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-ink uppercase tracking-wider mb-1">
+                    Percentage
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.academicHistory.tenthPercentage}
+                    onChange={(e) =>
+                      updateAcademicField("tenthPercentage", decimalOnly(e.target.value, 6))
+                    }
+                    placeholder="e.g. 91.5"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none bg-white"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1249,7 +1954,7 @@ const ProfilePage = () => {
               <div>
                 <h2 className="text-lg font-semibold text-ink">Skills & Competency Taxonomy</h2>
                 <p className="text-xs text-ink-muted">
-                  Categorized skills power precision matching against recruiter job requirements.
+                  Click a skill to add or remove it. Use Other only if it is not listed.
                 </p>
               </div>
               <span className="text-xs font-bold px-3 py-1 bg-teal-soft text-teal rounded-full border border-teal/20">
@@ -1257,149 +1962,126 @@ const ProfilePage = () => {
               </span>
             </div>
 
-            {/* Programming Languages */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-ink uppercase tracking-wider">
-                Programming Languages
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. Python, TypeScript, Java, C++"
-                  value={langInput}
-                  onChange={(e) => setLangInput(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl border border-sage text-xs focus:ring-2 focus:ring-teal bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddCategorySkill("languages", langInput, setLangInput)}
-                  className="px-3 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl"
-                >
-                  Add
-                </button>
+            {[
+              {
+                key: "languages",
+                label: "Programming Languages",
+                input: langInput,
+                setInput: setLangInput,
+                placeholder: "Other language…",
+              },
+              {
+                key: "frameworks",
+                label: "Frameworks & Libraries",
+                input: frameInput,
+                setInput: setFrameInput,
+                placeholder: "Other framework…",
+              },
+              {
+                key: "databases",
+                label: "Databases & Storage",
+                input: dbInput,
+                setInput: setDbInput,
+                placeholder: "Other database…",
+              },
+              {
+                key: "tools",
+                label: "Tools & Platforms",
+                input: toolInput,
+                setInput: setToolInput,
+                placeholder: "Other tool…",
+              },
+            ].map((section) => (
+              <div key={section.key} className="space-y-2">
+                <label className="text-xs font-bold text-ink uppercase tracking-wider">
+                  {section.label}
+                </label>
+                <div className="flex flex-wrap gap-1.5 p-2 bg-paper rounded-lg border border-sage/60">
+                  {SKILL_SUGGESTIONS[section.key].map((skill) => {
+                    const selected = formData[section.key].includes(skill);
+                    return (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => toggleSuggestedSkill(section.key, skill)}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-md border transition ${
+                          selected
+                            ? "bg-teal text-white border-teal"
+                            : "bg-surface text-ink border-sage hover:border-teal hover:text-teal"
+                        }`}
+                      >
+                        {skill}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder={section.placeholder}
+                    value={section.input}
+                    onChange={(e) => section.setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCategorySkill(section.key, section.input, section.setInput);
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-xl border border-sage text-xs focus:ring-2 focus:ring-teal bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleAddCategorySkill(section.key, section.input, section.setInput)
+                    }
+                    className="px-3 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl"
+                  >
+                    Add
+                  </button>
+                </div>
+                {formData[section.key].some(
+                  (item) => !SKILL_SUGGESTIONS[section.key].includes(item)
+                ) && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {formData[section.key]
+                      .filter((item) => !SKILL_SUGGESTIONS[section.key].includes(item))
+                      .map((item) => (
+                        <span
+                          key={item}
+                          className="px-2 py-0.5 bg-surface border border-sage text-xs rounded-md flex items-center gap-1 font-medium"
+                        >
+                          {item}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCategorySkill(section.key, item)}
+                            className="text-red-500"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                  </div>
+                )}
               </div>
-              <div className="flex flex-wrap gap-1.5 min-h-8 p-2 bg-paper rounded-lg border border-sage/60">
-                {formData.languages.map((item) => (
-                  <span key={item} className="px-2 py-0.5 bg-surface border border-sage text-xs rounded-md flex items-center gap-1 font-medium">
-                    {item}
-                    <button type="button" onClick={() => handleRemoveCategorySkill("languages", item)} className="text-red-500">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
+            ))}
 
-            {/* Frameworks & Libraries */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-ink uppercase tracking-wider">
-                Frameworks & Libraries
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. React, Express, Node.js, Spring Boot, PyTorch"
-                  value={frameInput}
-                  onChange={(e) => setFrameInput(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl border border-sage text-xs focus:ring-2 focus:ring-teal bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddCategorySkill("frameworks", frameInput, setFrameInput)}
-                  className="px-3 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl"
-                >
-                  Add
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1.5 min-h-8 p-2 bg-paper rounded-lg border border-sage/60">
-                {formData.frameworks.map((item) => (
-                  <span key={item} className="px-2 py-0.5 bg-surface border border-sage text-xs rounded-md flex items-center gap-1 font-medium">
-                    {item}
-                    <button type="button" onClick={() => handleRemoveCategorySkill("frameworks", item)} className="text-red-500">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Databases */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-ink uppercase tracking-wider">
-                Databases & Storage
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. MongoDB, PostgreSQL, Redis, MySQL"
-                  value={dbInput}
-                  onChange={(e) => setDbInput(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl border border-sage text-xs focus:ring-2 focus:ring-teal bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddCategorySkill("databases", dbInput, setDbInput)}
-                  className="px-3 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl"
-                >
-                  Add
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1.5 min-h-8 p-2 bg-paper rounded-lg border border-sage/60">
-                {formData.databases.map((item) => (
-                  <span key={item} className="px-2 py-0.5 bg-surface border border-sage text-xs rounded-md flex items-center gap-1 font-medium">
-                    {item}
-                    <button type="button" onClick={() => handleRemoveCategorySkill("databases", item)} className="text-red-500">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Developer Tools */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-ink uppercase tracking-wider">
-                Tools & Platforms
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. Git, Docker, Kubernetes, Linux, Postman"
-                  value={toolInput}
-                  onChange={(e) => setToolInput(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl border border-sage text-xs focus:ring-2 focus:ring-teal bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddCategorySkill("tools", toolInput, setToolInput)}
-                  className="px-3 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl"
-                >
-                  Add
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1.5 min-h-8 p-2 bg-paper rounded-lg border border-sage/60">
-                {formData.tools.map((item) => (
-                  <span key={item} className="px-2 py-0.5 bg-surface border border-sage text-xs rounded-md flex items-center gap-1 font-medium">
-                    {item}
-                    <button type="button" onClick={() => handleRemoveCategorySkill("tools", item)} className="text-red-500">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* General skills tag cloud */}
             <div className="pt-2">
               <label className="text-xs font-bold text-ink uppercase tracking-wider block mb-1">
-                All Verified Technical Skills
+                Selected Skills
               </label>
-              <div className="flex flex-wrap gap-1.5 p-3 bg-paper rounded-xl border border-sage/60">
-                {formData.skills.map((s) => (
-                  <span key={s} className="px-2.5 py-1 bg-surface border border-sage text-teal rounded-lg text-xs font-semibold">
-                    {s}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-1.5 p-3 bg-paper rounded-xl border border-sage/60 min-h-10">
+                {formData.skills.length === 0 ? (
+                  <span className="text-xs text-ink-muted">Click skills above to add them.</span>
+                ) : (
+                  formData.skills.map((s) => (
+                    <span
+                      key={s}
+                      className="px-2.5 py-1 bg-surface border border-sage text-teal rounded-lg text-xs font-semibold"
+                    >
+                      {s}
+                    </span>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1466,14 +2148,14 @@ const ProfilePage = () => {
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-[11px] font-semibold text-ink-muted mb-1">
-                          Original description
+                          Description
                         </label>
                         <textarea
                           placeholder="Description & Key Contributions..."
-                          rows={2}
+                          rows={5}
                           value={proj.description}
                           onChange={(e) => handleUpdateProject(idx, "description", e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-sage text-xs bg-white focus:ring-2 focus:ring-teal"
+                          className="w-full min-h-[120px] px-3 py-2.5 rounded-xl border border-sage text-sm leading-relaxed bg-white focus:ring-2 focus:ring-teal focus:outline-none resize-y whitespace-pre-wrap break-words"
                         />
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <button
@@ -1494,19 +2176,14 @@ const ProfilePage = () => {
                               Accept AI version
                             </button>
                           )}
-                          {proj.aiEnhancedApproved && (
-                            <span className="text-[11px] text-emerald-700 font-semibold">
-                              AI version approved for resume
-                            </span>
-                          )}
                         </div>
-                        {proj.aiEnhancedDescription && (
+                        {proj.aiEnhancedDescription && !proj.aiEnhancedApproved && (
                           <div className="mt-2">
                             <label className="block text-[11px] font-semibold text-ink-muted mb-1">
                               AI-enhanced description (editable)
                             </label>
                             <textarea
-                              rows={3}
+                              rows={4}
                               value={proj.aiEnhancedDescription}
                               onChange={(e) =>
                                 handleUpdateProject(idx, "aiEnhancedDescription", e.target.value)
@@ -1594,13 +2271,51 @@ const ProfilePage = () => {
                         />
                       </div>
                       <div className="md:col-span-3">
+                        <label className="block text-[11px] font-semibold text-ink-muted mb-1">
+                          Description
+                        </label>
                         <textarea
                           placeholder="Key achievements and technologies utilized..."
-                          rows={2}
+                          rows={5}
                           value={exp.description}
                           onChange={(e) => handleUpdateExperience(idx, "description", e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-sage text-xs bg-white focus:ring-2 focus:ring-teal"
+                          className="w-full min-h-[120px] px-3 py-2.5 rounded-xl border border-sage text-sm leading-relaxed bg-white focus:ring-2 focus:ring-teal focus:outline-none resize-y whitespace-pre-wrap break-words"
                         />
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleImproveExperience(idx)}
+                            disabled={experienceImprovingIndex === idx}
+                            className="px-3 py-1.5 border border-sage text-ink rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-surface disabled:opacity-50"
+                          >
+                            <Wand2 className="w-3 h-3" />
+                            {experienceImprovingIndex === idx ? "Improving..." : "Improve with AI"}
+                          </button>
+                          {exp.aiEnhancedDescription && !exp.aiEnhancedApproved && (
+                            <button
+                              type="button"
+                              onClick={() => handleApproveExperienceEnhancement(idx)}
+                              className="px-3 py-1.5 bg-teal text-white rounded-lg text-[11px] font-semibold hover:bg-teal-deep"
+                            >
+                              Accept AI version
+                            </button>
+                          )}
+                        </div>
+                        {exp.aiEnhancedDescription && !exp.aiEnhancedApproved && (
+                          <div className="mt-2">
+                            <label className="block text-[11px] font-semibold text-ink-muted mb-1">
+                              AI-enhanced description (editable)
+                            </label>
+                            <textarea
+                              rows={4}
+                              value={exp.aiEnhancedDescription}
+                              onChange={(e) =>
+                                handleUpdateExperience(idx, "aiEnhancedDescription", e.target.value)
+                              }
+                              className="w-full px-3 py-2 rounded-xl border border-teal/30 text-xs bg-white focus:ring-2 focus:ring-teal"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1707,11 +2422,11 @@ const ProfilePage = () => {
                 className="p-4 rounded-xl border border-teal/40 bg-teal-soft/40 hover:bg-teal-soft transition text-left disabled:opacity-60"
               >
                 <h3 className="text-sm font-semibold text-teal inline-flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4" />
+                  <FileText className="w-4 h-4" />
                   {saving ? "Saving profile..." : "Create Resume"}
                 </h3>
                 <p className="text-xs text-ink-muted mt-1">
-                  Saves your latest profile (links & summary included), then opens templates.
+                  Saves your profile, then opens templates so you can build and download a PDF.
                 </p>
               </button>
             </div>
@@ -1722,6 +2437,67 @@ const ProfilePage = () => {
                 <span>{resumeMsg}</span>
               </div>
             )}
+
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                Generated resumes
+              </h3>
+              {generatedResumes.length === 0 ? (
+                <p className="text-xs text-ink-muted">
+                  None yet — use Create Resume above to build one from a template.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {generatedResumes.map((r) => (
+                    <div
+                      key={r._id}
+                      className="p-4 bg-white rounded-xl border border-sage flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-teal-soft flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-teal" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink text-sm truncate font-body">
+                            {formatTemplateLabel(r.templateId)}
+                          </p>
+                          <p className="text-[11px] text-ink-muted mt-0.5">
+                            Version {r.version}
+                            {r.createdAt
+                              ? ` · ${new Date(r.createdAt).toLocaleDateString(undefined, {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })}`
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleViewGeneratedResume(r)}
+                          disabled={viewingResumeId === r._id}
+                          title="Preview resume"
+                          className="flex-1 sm:flex-none px-3 py-2 border border-sage text-ink rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-paper disabled:opacity-60"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          {viewingResumeId === r._id ? "Opening..." : "Preview"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDownloadModal(r)}
+                          disabled={downloadingResumeId === r._id}
+                          className="flex-1 sm:flex-none px-3 py-2 bg-teal text-white rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 hover:bg-teal-deep disabled:opacity-60"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {formData.resumeUrl ? (
               <div className="p-4 bg-paper rounded-xl border border-sage flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1755,8 +2531,10 @@ const ProfilePage = () => {
             ) : (
               <div className="text-center py-6 border-2 border-dashed border-sage rounded-2xl bg-paper">
                 <FileText className="w-10 h-10 text-ink-muted mx-auto mb-2" />
-                <p className="text-sm font-semibold text-ink">No resume uploaded</p>
-                <p className="text-xs text-ink-muted mt-1">Upload a PDF document up to 5MB.</p>
+                <p className="text-sm font-semibold text-ink">No uploaded resume</p>
+                <p className="text-xs text-ink-muted mt-1">
+                  Upload a PDF below, or create one with templates above.
+                </p>
               </div>
             )}
 
@@ -1827,7 +2605,7 @@ const ProfilePage = () => {
             {isLastTab && (
               <button
                 type="button"
-                onClick={saveProfile}
+                onClick={() => saveProfile()}
                 disabled={saving || isRedirecting}
                 className="flex-1 sm:flex-none px-8 py-3 bg-teal hover:bg-teal-deep text-white font-semibold rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
               >
@@ -1852,7 +2630,132 @@ const ProfilePage = () => {
           </div>
         </div>
       </form>
+        </>
+      )}
     </div>
+
+    {showResumeUpdatePrompt && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4 backdrop-blur-[2px]"
+        onClick={() => setShowResumeUpdatePrompt(false)}
+        role="presentation"
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="w-full max-w-md rounded-2xl bg-white border border-sage p-6 shadow-xl font-body"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-[11px] font-bold uppercase tracking-widest text-teal">Resume</p>
+          <p className="text-lg font-semibold text-ink mt-1 font-body">
+            Update your resume?
+          </p>
+          <p className="text-sm text-ink-muted mt-1.5 leading-relaxed">
+            Your profile details changed. Refresh your generated resume so recruiters see the
+            latest information. The new PDF will replace your current one.
+          </p>
+          <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowResumeUpdatePrompt(false)}
+              className="px-4 py-2.5 text-sm font-semibold rounded-xl border border-sage text-ink hover:bg-paper"
+            >
+              Not now
+            </button>
+            <button
+              type="button"
+              onClick={handleUpdateExistingResume}
+              className="px-5 py-2.5 bg-teal hover:bg-teal-deep text-white text-sm font-semibold rounded-xl"
+            >
+              Update resume
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {downloadTarget && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-4 backdrop-blur-[2px]"
+        onClick={() => !downloadingResumeId && setDownloadTarget(null)}
+        role="presentation"
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="download-resume-title"
+          className="w-full max-w-md rounded-2xl bg-white border border-sage p-6 shadow-xl font-body"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-[11px] font-bold uppercase tracking-widest text-teal">Download</p>
+          <p id="download-resume-title" className="text-lg font-semibold text-ink mt-1 font-body">
+            Name your PDF file
+          </p>
+          <p className="text-sm text-ink-muted mt-1.5 leading-relaxed">
+            {formatTemplateLabel(downloadTarget.templateId)}
+            {downloadTarget.version ? ` · version ${downloadTarget.version}` : ""}. Edit the name
+            below, then save.
+          </p>
+          <label
+            htmlFor="resume-download-filename"
+            className="block text-xs font-semibold text-ink mt-5 mb-1.5"
+          >
+            File name
+          </label>
+          <div className="flex items-stretch rounded-xl border border-sage overflow-hidden focus-within:ring-2 focus-within:ring-teal bg-white">
+            <input
+              id="resume-download-filename"
+              type="text"
+              autoFocus
+              value={downloadFileName}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setDownloadFileName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  confirmDownloadGeneratedResume();
+                }
+                if (e.key === "Escape") {
+                  setDownloadTarget(null);
+                }
+              }}
+              placeholder="e.g. Prasanth_Resume"
+              className="flex-1 px-3.5 py-3 text-sm text-ink focus:outline-none bg-transparent font-body"
+            />
+            <span className="px-3 flex items-center text-sm font-semibold text-ink-muted bg-paper border-l border-sage">
+              .pdf
+            </span>
+          </div>
+          <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setDownloadTarget(null)}
+              disabled={Boolean(downloadingResumeId)}
+              className="px-4 py-2.5 text-sm font-semibold rounded-xl border border-sage text-ink hover:bg-paper disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDownloadGeneratedResume}
+              disabled={Boolean(downloadingResumeId)}
+              className="px-5 py-2.5 bg-teal hover:bg-teal-deep text-white text-sm font-semibold rounded-xl disabled:opacity-60 inline-flex items-center justify-center gap-1.5"
+            >
+              {downloadingResumeId ? (
+                <>
+                  <ButtonSpinner className="w-4 h-4" /> Saving...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" /> Download PDF
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 };
 

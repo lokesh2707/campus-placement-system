@@ -53,6 +53,14 @@ const ResumeTemplatesPage = () => {
   const { token } = useAuth();
   const location = useLocation();
   const profileDraft = location.state?.profileDraft || null;
+  const replaceResumeId = location.state?.replaceResumeId || null;
+  const preferredTemplateId = location.state?.preferredTemplateId || null;
+  const updatingResume = Boolean(location.state?.updatingResume && replaceResumeId);
+  const builderState = {
+    ...(profileDraft ? { profileDraft } : {}),
+    ...(replaceResumeId ? { replaceResumeId } : {}),
+    ...(updatingResume ? { updatingResume: true } : {}),
+  };
   const [templates, setTemplates] = useState(FALLBACK_TEMPLATES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -98,11 +106,12 @@ const ResumeTemplatesPage = () => {
             Resume Builder
           </p>
           <h1 className="mt-1 text-3xl font-display font-semibold text-ink tracking-tight">
-            Choose an ATS resume template
+            {updatingResume ? "Choose a template to update your resume" : "Choose an ATS resume template"}
           </h1>
           <p className="text-sm text-ink-muted mt-2 leading-relaxed">
-            Preview how each layout looks, then select one. Your profile details stay the same
-            when you switch templates later.
+            {updatingResume
+              ? "Pick a template (your previous one is highlighted). Generating will replace your old resume with the latest profile details."
+              : "Preview how each layout looks, then select one. Your profile details stay the same when you switch templates later."}
           </p>
         </div>
         <Link
@@ -112,6 +121,12 @@ const ResumeTemplatesPage = () => {
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Profile
         </Link>
       </div>
+
+      {updatingResume && (
+        <div className="mb-4 p-3 rounded-xl bg-teal-soft border border-teal/20 text-teal text-xs font-medium">
+          Updating existing resume — the new PDF will replace the previous file.
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
@@ -129,21 +144,27 @@ const ResumeTemplatesPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {cards.map((t) => {
             const active = hovered === t.id;
+            const preferred = preferredTemplateId === t.id;
             return (
               <Link
                 key={t.id}
                 to={`/student/resume-builder/${t.id}`}
-                state={profileDraft ? { profileDraft } : undefined}
+                state={Object.keys(builderState).length ? builderState : undefined}
                 onMouseEnter={() => setHovered(t.id)}
                 onMouseLeave={() => setHovered(null)}
                 className={`group rounded-2xl overflow-hidden border bg-white transition duration-200 ${
-                  active
+                  active || preferred
                     ? "border-teal shadow-md ring-1 ring-teal/30 -translate-y-0.5"
                     : "border-sage shadow-xs hover:border-teal/50 hover:shadow-sm"
                 }`}
               >
                 <div className="relative bg-paper/80 px-4 pt-4 pb-3 border-b border-sage/70">
-                  <div className="absolute top-3 right-3 z-10">
+                  <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1">
+                    {preferred && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal text-white">
+                        Current
+                      </span>
+                    )}
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-soft text-teal border border-teal/20">
                       {t.badge || "ATS"}
                     </span>

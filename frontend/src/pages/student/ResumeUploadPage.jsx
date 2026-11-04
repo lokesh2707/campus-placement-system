@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
   UploadCloud,
-  FileCheck2,
   AlertCircle,
   CheckCircle2,
   Plus,
@@ -228,14 +227,14 @@ const ResumeUploadPage = () => {
 
       {successMsg && (
         <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-600" />
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {errorMsg && (
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-600" />
+          <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
           <span>{errorMsg}</span>
         </div>
       )}
@@ -302,7 +301,10 @@ const ResumeUploadPage = () => {
               type="file"
               accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={handleFileChange}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.target.value = null;
+              }}
               className="sr-only"
               aria-label="Choose resume file"
             />
@@ -336,7 +338,7 @@ const ResumeUploadPage = () => {
       {/* Scanned Notice Alert */}
       {analysis?.isScanned && (
         <div className="mb-8 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2.5">
-          <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
+          <Info className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
           <div>
             <div className="font-bold">Scanned Document Detected</div>
             <div className="mt-0.5">{analysis.scanNotice}</div>
@@ -479,8 +481,14 @@ const ResumeUploadPage = () => {
                 type="text"
                 value={newSkillInput}
                 onChange={(e) => setNewSkillInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSkill(e);
+                  }
+                }}
                 placeholder="Add missing skill..."
-                className="flex-1 px-3.5 py-2 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-[var(--color-teal)] focus:outline-none"
+                className="flex-1 px-3.5 py-2 rounded-xl border border-sage text-sm focus:ring-2 focus:ring-teal focus:outline-none"
               />
               <button
                 type="button"
@@ -501,6 +509,7 @@ const ResumeUploadPage = () => {
                   <button
                     type="button"
                     onClick={() => handleRemoveSkill(s)}
+                    aria-label={`Remove skill ${s}`}
                     className="text-ink-muted hover:text-red-500"
                   >
                     <X className="w-3.5 h-3.5" />

@@ -21,12 +21,9 @@ const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
 const AdminAuditLog = require("./models/AdminAuditLog");
 const { resumePendingOfferResolutions } = require("./utils/offerRecovery");
-const { ensureDir, GENERATED_ROOT } = require("./services/resumePdfService");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-ensureDir(GENERATED_ROOT);
 
 // Security and utility middleware
 app.use(helmet());

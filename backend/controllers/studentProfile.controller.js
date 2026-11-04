@@ -8,6 +8,7 @@ const { normalizeRole, ROLES } = require("../constants/roles");
 const { computeProfileCompletion } = require("../utils/profileCompletion");
 const {
   hashProjectSource,
+  hashExperienceSource,
   validateOptionalHttpsUrl,
 } = require("../utils/resumeProfileHelpers");
 
@@ -325,15 +326,34 @@ const upsertMyProfile = async (req, res, next) => {
     }
 
     if (Array.isArray(experience)) {
-      profileFields.experience = experience.map((exp) => ({
-        role: String(exp.role || "").trim(),
-        company: String(exp.company || "").trim(),
-        duration: String(exp.duration || "").trim(),
-        description: String(exp.description || "").trim(),
-        startDate: exp.startDate ? new Date(exp.startDate) : null,
-        endDate: exp.endDate ? new Date(exp.endDate) : null,
-        isCurrent: Boolean(exp.isCurrent),
-      })).filter((exp) => exp.role.length > 0 && exp.company.length > 0);
+      profileFields.experience = experience
+        .map((exp) => {
+          const role = String(exp.role || "").trim();
+          const company = String(exp.company || "").trim();
+          const description = String(exp.description || "").trim();
+          const currentHash = hashExperienceSource(role, company, description);
+          let aiEnhancedDescription = String(exp.aiEnhancedDescription || "").trim();
+          let aiEnhancedApproved = Boolean(exp.aiEnhancedApproved);
+          let aiEnhancedSourceHash = String(exp.aiEnhancedSourceHash || "").trim();
+          if (aiEnhancedApproved && aiEnhancedSourceHash && aiEnhancedSourceHash !== currentHash) {
+            aiEnhancedApproved = false;
+          }
+          return {
+            role,
+            company,
+            duration: String(exp.duration || "").trim(),
+            description,
+            aiEnhancedDescription,
+            aiEnhancedApproved,
+            aiEnhancedSourceHash: aiEnhancedApproved
+              ? aiEnhancedSourceHash || currentHash
+              : aiEnhancedSourceHash,
+            startDate: exp.startDate ? new Date(exp.startDate) : null,
+            endDate: exp.endDate ? new Date(exp.endDate) : null,
+            isCurrent: Boolean(exp.isCurrent),
+          };
+        })
+        .filter((exp) => exp.role.length > 0 && exp.company.length > 0);
     }
 
     if (Array.isArray(certifications)) {
@@ -368,7 +388,27 @@ const upsertMyProfile = async (req, res, next) => {
         });
       }
 
+      const trimStr = (v, max = 200) => String(v || "").trim().slice(0, max);
+      const parseOptionalYear = (value) => {
+        if (value === undefined || value === null || value === "") return null;
+        const parsed = parseInt(value, 10);
+        if (Number.isNaN(parsed) || parsed < 1950 || parsed > 2050) return undefined;
+        return parsed;
+      };
+      const collegeStartYear = parseOptionalYear(academicHistory.collegeStartYear);
+      if (collegeStartYear === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: "College start year must be a valid year between 1950 and 2050",
+        });
+      }
+
       profileFields.academicHistory = {
+        collegeStartYear,
+        intermediateName: trimStr(academicHistory.intermediateName, 200),
+        intermediateDuration: trimStr(academicHistory.intermediateDuration, 60),
+        schoolName: trimStr(academicHistory.schoolName, 200),
+        schoolDuration: trimStr(academicHistory.schoolDuration, 60),
         tenthPercentage: tenth,
         twelfthPercentage: twelfth,
         diplomaPercentage: diploma,

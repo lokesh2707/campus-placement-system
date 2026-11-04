@@ -135,7 +135,7 @@ const RecommendationsPage = () => {
                       Match Score
                     </span>
                   </div>
-                  <div className="h-10 w-px bg-[var(--color-border)]"></div>
+                  <div className="h-10 w-px bg-border"></div>
                   <div>
                     {rec.is_eligible ? (
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
@@ -256,7 +256,7 @@ const RecommendationsPage = () => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => handleOpenGapModal(rec.job_id)}
-                    className="px-3.5 py-2 bg-teal-soft hover:bg-[var(--color-border)] text-ink rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition text-center"
+                    className="px-3.5 py-2 bg-teal-soft hover:bg-border text-ink rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition text-center"
                   >
                     <BookOpen className="w-3.5 h-3.5 text-teal" /> Analyze Skill Gaps
                   </button>

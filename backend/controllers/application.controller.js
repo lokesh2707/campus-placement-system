@@ -16,6 +16,7 @@ const {
   executeOfferResolutionSideEffects,
   resumePendingOfferResolutions,
 } = require("../utils/offerRecovery");
+const { isDepartmentAllowed } = require("../utils/departmentMatch");
 
 /**
  * Helper to safely extract MongoDB ObjectId string from reference or object
@@ -229,11 +230,7 @@ const applyToJob = async (req, res, next) => {
     }
 
     if (criteria.allowedDepartments && criteria.allowedDepartments.length > 0) {
-      const studentDept = String(studentProfile.department || "").trim().toLowerCase();
-      const isDeptAllowed = criteria.allowedDepartments.some(
-        (d) => String(d).trim().toLowerCase() === studentDept
-      );
-      if (!isDeptAllowed) {
+      if (!isDepartmentAllowed(studentProfile.department, criteria.allowedDepartments)) {
         return res.status(400).json({
           success: false,
           message: `Your department (${studentProfile.department}) is not eligible for this role. Eligible branches: ${criteria.allowedDepartments.join(", ")}`,
@@ -418,11 +415,7 @@ const evaluateApplicationRecord = async (applicationId, evaluatedByUserId = null
     if (depts.length > 0) {
       if (!studentData.department) {
         missingData.push("Department");
-      } else if (
-        !depts.some((d) =>
-          String(studentData.department).toLowerCase().includes(String(d).toLowerCase())
-        )
-      ) {
+      } else if (!isDepartmentAllowed(studentData.department, depts)) {
         isEligible = false;
         eligibilityReasons.push(
           `Department '${studentData.department}' not in eligible list`

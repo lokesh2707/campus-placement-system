@@ -13,6 +13,19 @@ export const getEffectiveProjectDescription = (project) => {
   return String(project.description || "").trim();
 };
 
+/** Pick effective experience description for resume preview / snapshot */
+export const getEffectiveExperienceDescription = (exp) => {
+  if (!exp) return "";
+  if (
+    exp.aiEnhancedApproved &&
+    exp.aiEnhancedDescription &&
+    String(exp.aiEnhancedDescription).trim()
+  ) {
+    return String(exp.aiEnhancedDescription).trim();
+  }
+  return String(exp.description || "").trim();
+};
+
 export const buildPreviewData = ({ user, form }) => ({
   name: form.name || user?.name || "",
   email: user?.email || "",
@@ -23,6 +36,13 @@ export const buildPreviewData = ({ user, form }) => ({
   batch: form.batch,
   cgpa: form.cgpa,
   instituteName: form.instituteName || "",
+  collegeStartYear: form.collegeStartYear ?? "",
+  intermediateName: form.intermediateName || "",
+  intermediateDuration: form.intermediateDuration || "",
+  schoolName: form.schoolName || "",
+  schoolDuration: form.schoolDuration || "",
+  tenthPercentage: form.tenthPercentage ?? "",
+  twelfthPercentage: form.twelfthPercentage ?? "",
   professionalSummary: form.professionalSummary || "",
   githubUrl: form.githubUrl || "",
   linkedinUrl: form.linkedinUrl || "",
@@ -38,6 +58,13 @@ export const buildPreviewData = ({ user, form }) => ({
       liveUrl: p.liveUrl || "",
       link: p.link || "",
     })),
-  experience: (form.experience || []).filter((e) => e.role && e.company),
+  experience: (form.experience || [])
+    .filter((e) => e.role && e.company)
+    .map((e) => ({
+      role: e.role,
+      company: e.company,
+      duration: e.duration || "",
+      description: getEffectiveExperienceDescription(e),
+    })),
   certifications: (form.certifications || []).filter((c) => c.title),
 });

@@ -21,7 +21,6 @@ const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
 
 const StudentDashboard = lazy(() => import("./pages/student/StudentDashboard"));
 const ProfilePage = lazy(() => import("./pages/student/ProfilePage"));
-const ResumeUploadPage = lazy(() => import("./pages/student/ResumeUploadPage"));
 const ResumeTemplatesPage = lazy(() => import("./pages/student/ResumeTemplatesPage"));
 const ResumeBuilderPage = lazy(() => import("./pages/student/ResumeBuilderPage"));
 const RecommendationsPage = lazy(() => import("./pages/student/RecommendationsPage"));
@@ -101,11 +100,7 @@ function App() {
                 />
                 <Route
                   path="/student/resume"
-                  element={
-                    <ProtectedRoute allowedRoles={["student"]}>
-                      <ResumeUploadPage />
-                    </ProtectedRoute>
-                  }
+                  element={<Navigate to="/student/resume-builder" replace />}
                 />
                 <Route
                   path="/student/resume-builder"

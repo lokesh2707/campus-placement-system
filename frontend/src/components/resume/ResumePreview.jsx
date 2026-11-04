@@ -84,25 +84,74 @@ const SkillRows = ({ cats }) => (
   </>
 );
 
-const EducationBlock = ({ data }) =>
-  (data.degree || data.department || data.batch) && (
+const collegeYearRange = (data) => {
+  const start = data.collegeStartYear ? String(data.collegeStartYear) : "";
+  const end = data.batch ? String(data.batch) : "";
+  if (start && end) return `${start} – ${end}`;
+  return end || start || "";
+};
+
+const buildEducationBlocks = (data) => {
+  const blocks = [];
+  const college = data.instituteName || "";
+  const degreeDept = [data.degree, data.department].filter(Boolean).join(" – ");
+  const collegeDuration = collegeYearRange(data);
+  const cgpa =
+    data.cgpa !== undefined && data.cgpa !== null && data.cgpa !== ""
+      ? `CGPA ${data.cgpa}`
+      : "";
+
+  if (degreeDept || college) {
+    blocks.push({
+      title: degreeDept || "Undergraduate",
+      meta: [college, collegeDuration, cgpa].filter(Boolean).join(" | "),
+    });
+  }
+  if (data.intermediateName || (data.twelfthPercentage !== undefined && data.twelfthPercentage !== "" && data.twelfthPercentage != null)) {
+    blocks.push({
+      title: "Higher Secondary (12th)",
+      meta: [
+        data.intermediateName,
+        data.intermediateDuration,
+        data.twelfthPercentage !== "" && data.twelfthPercentage != null
+          ? `${data.twelfthPercentage}%`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    });
+  }
+  if (data.schoolName || (data.tenthPercentage !== undefined && data.tenthPercentage !== "" && data.tenthPercentage != null)) {
+    blocks.push({
+      title: "Secondary (10th)",
+      meta: [
+        data.schoolName,
+        data.schoolDuration,
+        data.tenthPercentage !== "" && data.tenthPercentage != null
+          ? `${data.tenthPercentage}%`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    });
+  }
+  return blocks;
+};
+
+const EducationBlock = ({ data }) => {
+  const blocks = buildEducationBlocks(data);
+  if (!blocks.length) return null;
+  return (
     <Section title="Education">
-      <p className="text-sm font-semibold text-ink">
-        {[data.degree, data.department].filter(Boolean).join(" – ")}
-      </p>
-      <p className="text-xs text-ink-muted">
-        {[
-          data.instituteName,
-          data.batch,
-          data.cgpa !== undefined && data.cgpa !== null && data.cgpa !== ""
-            ? `CGPA ${data.cgpa}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join(" | ")}
-      </p>
+      {blocks.map((b) => (
+        <div key={b.title} className="mb-1.5">
+          <p className="text-sm font-semibold text-ink">{b.title}</p>
+          {b.meta ? <p className="text-xs text-ink-muted">{b.meta}</p> : null}
+        </div>
+      ))}
     </Section>
   );
+};
 
 const ResumePreview = ({ data, templateId = "modern_ats_professional" }) => {
   const skills = Array.isArray(data.skills) ? data.skills.filter(Boolean) : [];
@@ -132,19 +181,6 @@ const ResumePreview = ({ data, templateId = "modern_ats_professional" }) => {
             <p className="text-xs text-ink leading-relaxed">{data.professionalSummary}</p>
           </Section>
         )}
-        <Section title="Core Competencies">
-          <p className="text-xs text-ink">
-            {[
-              cats.frontend.length ? "Frontend Development" : null,
-              cats.backend.length ? "Backend Development" : null,
-              "API Integration",
-              cats.database.length ? "Database Design" : null,
-              "Responsive UI",
-            ]
-              .filter(Boolean)
-              .join(" | ")}
-          </p>
-        </Section>
         {skills.length > 0 && (
           <Section title="Technical Expertise">
             <SkillRows cats={cats} />
@@ -416,7 +452,10 @@ const ResumePreview = ({ data, templateId = "modern_ats_professional" }) => {
           : title;
 
   return (
-    <div className="bg-white text-ink shadow-sm border border-sage rounded-xl p-4 sm:p-6 min-h-[640px] font-sans overflow-x-hidden">
+    <div
+      className="bg-white text-ink shadow-sm border border-sage rounded-xl px-4 pt-2 pb-4 sm:px-5 sm:pt-3 sm:pb-5 min-h-[640px] overflow-x-hidden"
+      style={{ fontFamily: "'Times New Roman', Times, serif" }}
+    >
       <header className="mb-1">
         <h1 className="text-xl font-bold tracking-wide uppercase text-ink">
           {data.name || "Your Full Name"}

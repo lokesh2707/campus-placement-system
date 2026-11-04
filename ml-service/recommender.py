@@ -45,6 +45,21 @@ def normalize_skill(skill: str) -> str:
     }
     return aliases.get(s, s)
 
+
+def normalize_department(dept: str) -> str:
+    """Normalize department so '&' and 'and' (and punctuation) match."""
+    s = str(dept or "").lower().replace("&", " and ")
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def departments_match(student_dept: str, allowed_dept: str) -> bool:
+    student = normalize_department(student_dept)
+    allowed = normalize_department(allowed_dept)
+    if not student or not allowed:
+        return False
+    return student == allowed or student in allowed or allowed in student
+
 def check_eligibility(student: Dict[str, Any], job: Dict[str, Any]) -> Dict[str, Any]:
     """Verify hard academic eligibility criteria."""
     criteria = job.get("eligibilityCriteria", {})
@@ -87,9 +102,9 @@ def check_eligibility(student: Dict[str, Any], job: Dict[str, Any]) -> Dict[str,
         is_eligible = False
         reasons.append(f"CGPA {actual_cgpa} is below minimum requirement of {min_cgpa}")
 
-    # 2. Department check
+    # 2. Department check ("Computer Science & Engineering" == "... and Engineering")
     if allowed_depts and len(allowed_depts) > 0:
-        dept_match = any(d.lower() in student_dept.lower() for d in allowed_depts)
+        dept_match = any(departments_match(student_dept, d) for d in allowed_depts)
         if not dept_match:
             is_eligible = False
             reasons.append(f"Department '{student_dept}' is not in eligible branches: {', '.join(allowed_depts)}")
