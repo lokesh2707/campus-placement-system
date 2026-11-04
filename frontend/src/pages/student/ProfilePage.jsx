@@ -755,7 +755,7 @@ const ProfilePage = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex flex-wrap border-b border-sage mb-6 gap-2">
+      <div className="flex overflow-x-auto no-scrollbar border-b border-sage mb-6 gap-2 pb-1 sm:flex-wrap whitespace-nowrap">
         <button
           type="button"
           onClick={() => goToTab("personal")}

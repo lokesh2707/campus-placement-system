@@ -72,8 +72,7 @@ const Navbar = () => {
             <img
               src="/brand/campusplacement-logo.png"
               alt="CampusPlacement Intelligence"
-              className="h-9 sm:h-10 w-auto object-contain object-left"
-              style={{ height: 60, width: 'auto' }}
+              className="h-9 sm:h-11 w-auto max-w-[180px] xs:max-w-[220px] sm:max-w-none object-contain object-left"
             />
           </Link>
 
@@ -282,6 +281,13 @@ const Navbar = () => {
               >
                 Get Started
               </Link>
+              <div className="pt-2.5 mt-2 border-t border-sage/60 flex items-center justify-center gap-3 text-xs text-ink-muted px-2">
+                <Link to="/officer/login" onClick={() => setMobileMenuOpen(false)} className="hover:text-teal font-medium">Officer</Link>
+                <span>•</span>
+                <Link to="/recruiter/login" onClick={() => setMobileMenuOpen(false)} className="hover:text-teal font-medium">Recruiter</Link>
+                <span>•</span>
+                <Link to="/super-admin/login" onClick={() => setMobileMenuOpen(false)} className="hover:text-teal font-medium">Admin</Link>
+              </div>
             </div>
           )}
         </div>

@@ -201,7 +201,7 @@ const StudentDashboard = () => {
       )}
 
       {/* Profile Completion Card */}
-      <div className={`mb-8 p-6 rounded-2xl border shadow-xs ${
+      <div className={`mb-8 p-4 sm:p-6 rounded-2xl border shadow-xs ${
         isComplete ? "bg-surface border-sage" : "bg-amber-50/60 border-amber-200"
       }`}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -212,7 +212,7 @@ const StudentDashboard = () => {
               <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-1" />
             )}
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-ink text-base">
                   {isComplete ? "Academic Profile Complete" : "Profile Incomplete — Action Required"}
                 </h3>
@@ -231,7 +231,7 @@ const StudentDashboard = () => {
           </div>
           <Link
             to="/student/profile"
-            className="px-4 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl transition whitespace-nowrap shadow-xs"
+            className="w-full sm:w-auto text-center px-4 py-2 bg-teal hover:bg-teal-deep text-white text-xs font-semibold rounded-xl transition whitespace-nowrap shadow-xs"
           >
             {isComplete ? "Update Profile" : "Complete Missing Fields"}
           </Link>

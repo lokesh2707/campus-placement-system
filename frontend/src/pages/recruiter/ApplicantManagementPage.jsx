@@ -272,7 +272,7 @@ const ApplicantManagementPage = () => {
         </div>
 
         {/* Score Threshold Slider */}
-        <div className="flex items-center gap-4 pt-3 border-t border-sage text-xs text-ink-muted">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-3 border-t border-sage text-xs text-ink-muted">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="w-3.5 h-3.5 text-teal" />
             <span className="font-semibold text-ink">Minimum AI Score Filter:</span>
@@ -285,7 +285,7 @@ const ApplicantManagementPage = () => {
             step={5}
             value={minScoreFilter}
             onChange={(e) => setMinScoreFilter(Number(e.target.value))}
-            className="w-48 accent-teal cursor-pointer"
+            className="w-full sm:w-48 accent-teal cursor-pointer"
           />
           {minScoreFilter > 0 && (
             <button

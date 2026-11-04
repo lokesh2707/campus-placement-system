@@ -53,8 +53,8 @@ const RecruiterRegisterPage = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-paper">
-      <div className="max-w-lg w-full panel p-8 shadow-sm">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-paper">
+      <div className="max-w-lg w-full panel p-5 sm:p-8 shadow-sm">
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center mx-auto mb-3">
             <Building className="w-6 h-6" />

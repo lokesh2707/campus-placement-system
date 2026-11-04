@@ -180,7 +180,7 @@ const CandidateReviewPage = () => {
               </div>
 
               {/* Action Controls */}
-              <div className="bg-paper p-4 rounded-xl border border-sage flex flex-col gap-2 min-w-[280px]">
+              <div className="bg-paper p-4 rounded-xl border border-sage flex flex-col gap-2 w-full md:w-auto md:min-w-[280px]">
                 <label className="text-xs font-bold text-ink">
                   Update Candidate Stage
                 </label>

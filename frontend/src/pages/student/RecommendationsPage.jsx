@@ -248,21 +248,21 @@ const RecommendationsPage = () => {
               </div>
 
               {/* Actions */}
-              <div className="mt-5 pt-4 border-t border-sage flex flex-wrap items-center justify-between gap-3">
+              <div className="mt-5 pt-4 border-t border-sage flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <span className="text-[11px] text-ink-muted italic">
                   {rec.disclaimer}
                 </span>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => handleOpenGapModal(rec.job_id)}
-                    className="px-3.5 py-1.5 bg-teal-soft hover:bg-[var(--color-border)] text-ink rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                    className="px-3.5 py-2 bg-teal-soft hover:bg-[var(--color-border)] text-ink rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition text-center"
                   >
                     <BookOpen className="w-3.5 h-3.5 text-teal" /> Analyze Skill Gaps
                   </button>
                   <Link
                     to={`/student/jobs?jobId=${encodeURIComponent(rec.job_id)}`}
-                    className="px-4 py-1.5 bg-teal hover:bg-teal-deep text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                    className="px-4 py-2 bg-teal hover:bg-teal-deep text-white rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition text-center"
                   >
                     View Job & Apply <ArrowRight className="w-3.5 h-3.5" />
                   </Link>

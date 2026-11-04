@@ -416,7 +416,7 @@ const ResumePreview = ({ data, templateId = "modern_ats_professional" }) => {
           : title;
 
   return (
-    <div className="bg-white text-ink shadow-sm border border-sage rounded-xl p-6 min-h-[640px] font-sans">
+    <div className="bg-white text-ink shadow-sm border border-sage rounded-xl p-4 sm:p-6 min-h-[640px] font-sans overflow-x-hidden">
       <header className="mb-1">
         <h1 className="text-xl font-bold tracking-wide uppercase text-ink">
           {data.name || "Your Full Name"}

@@ -66,8 +66,8 @@ const AdminSecurityGatewayPage = () => {
   const isLocked = lockoutSeconds > 0;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-paper">
-      <div className="max-w-md w-full panel p-8 border-2 border-sage/80 shadow-md">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-paper">
+      <div className="max-w-md w-full panel p-5 sm:p-8 border-2 border-sage/80 shadow-md">
         {/* Security Badge Header */}
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-2xl bg-teal-soft text-teal-deep flex items-center justify-center mx-auto mb-3 shadow-sm border border-sage">

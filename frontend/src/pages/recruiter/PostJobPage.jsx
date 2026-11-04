@@ -646,12 +646,12 @@ const PostJobPage = () => {
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
           {isEditMode && (
             <button
               type="button"
               onClick={() => navigate("/recruiter/dashboard")}
-              className="px-6 py-3 border border-sage text-ink font-semibold rounded-xl text-sm hover:bg-paper transition"
+              className="w-full sm:w-auto px-6 py-3 border border-sage text-ink font-semibold rounded-xl text-sm hover:bg-paper transition text-center"
             >
               Cancel
             </button>
@@ -659,7 +659,7 @@ const PostJobPage = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="px-8 py-3 bg-teal hover:bg-teal-deep text-white font-semibold rounded-xl text-sm transition shadow-sm disabled:opacity-50 flex items-center gap-2"
+            className="w-full sm:w-auto px-8 py-3 bg-teal hover:bg-teal-deep text-white font-semibold rounded-xl text-sm transition shadow-sm disabled:opacity-50 inline-flex items-center justify-center gap-2 text-center"
           >
             {isEditMode ? (
               <>

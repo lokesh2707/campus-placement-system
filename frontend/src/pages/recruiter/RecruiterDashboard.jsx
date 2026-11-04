@@ -124,11 +124,11 @@ const RecruiterDashboard = () => {
             Enterprise recruitment hub for publishing job openings and reviewing campus applicants.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           {isVerified ? (
             <Link
               to="/recruiter/post-job"
-              className="btn-primary px-5 py-2.5 text-sm font-semibold flex items-center gap-2 shadow-xs"
+              className="btn-primary w-full sm:w-auto px-5 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-xs"
             >
               <PlusCircle className="w-4 h-4" /> Post New Job
             </Link>
@@ -136,7 +136,7 @@ const RecruiterDashboard = () => {
             <button
               type="button"
               disabled
-              className="btn-secondary px-5 py-2.5 text-sm font-semibold flex items-center gap-2 opacity-60 cursor-not-allowed"
+              className="btn-secondary w-full sm:w-auto px-5 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-2 opacity-60 cursor-not-allowed"
               title="Company verification required before posting open drives"
             >
               <PlusCircle className="w-4 h-4" /> Post New Job (Verification Pending)

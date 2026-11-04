@@ -184,11 +184,11 @@ const ApplicantReviewPage = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
           <button
             onClick={handleRecalculateAI}
             disabled={recalculating}
-            className="px-3.5 py-2 border border-sage rounded-xl text-xs font-semibold text-ink hover:bg-paper transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+            className="px-3.5 py-2 border border-sage rounded-xl text-xs font-semibold text-ink hover:bg-paper transition inline-flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
           >
             <RotateCw className={`w-3.5 h-3.5 text-teal ${recalculating ? "animate-spin" : ""}`} />
             {recalculating ? "Recalculating..." : "Re-run AI Evaluation"}
@@ -198,7 +198,7 @@ const ApplicantReviewPage = () => {
             href={`/api/applications/${applicationId}/resume`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
+            className="px-4 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition shadow-xs"
           >
             <FileText className="w-4 h-4" /> View Original Resume PDF
           </a>

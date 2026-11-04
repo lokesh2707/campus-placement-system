@@ -38,7 +38,7 @@ const LandingPage = () => {
           aria-hidden="true"
         />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-16 lg:py-24 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-12 sm:py-16 lg:py-24 relative z-10">
           <div className="max-w-xl">
             <p className="animate-fade-up font-display text-3xl sm:text-4xl lg:text-5xl font-semibold text-teal tracking-tight">
               <span className="brand-underline">CampusPlacement</span>
@@ -80,8 +80,8 @@ const LandingPage = () => {
       </section>
 
       <section id="about" className="border-t border-sage bg-surface">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-soft text-teal border border-sage mb-3">
                 <Sparkles className="w-3.5 h-3.5" /> Institutional Placement Intelligence
@@ -130,24 +130,24 @@ const LandingPage = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="panel p-5 bg-paper">
-                <p className="font-display text-3xl font-bold text-teal">100%</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="panel p-4 sm:p-5 bg-paper">
+                <p className="font-display text-2xl sm:text-3xl font-bold text-teal">100%</p>
                 <p className="text-xs font-semibold text-ink mt-1">Local Processing</p>
                 <p className="text-[11px] text-ink-muted mt-1">Zero cloud AI vendor dependencies</p>
               </div>
-              <div className="panel p-5 bg-paper">
-                <p className="font-display text-3xl font-bold text-teal">3 Formats</p>
+              <div className="panel p-4 sm:p-5 bg-paper">
+                <p className="font-display text-2xl sm:text-3xl font-bold text-teal">3 Formats</p>
                 <p className="text-xs font-semibold text-ink mt-1">Resume Ingestion</p>
                 <p className="text-[11px] text-ink-muted mt-1">PDF, DOCX & legacy DOC</p>
               </div>
-              <div className="panel p-5 bg-paper">
-                <p className="font-display text-3xl font-bold text-teal">4 Tiers</p>
+              <div className="panel p-4 sm:p-5 bg-paper">
+                <p className="font-display text-2xl sm:text-3xl font-bold text-teal">4 Tiers</p>
                 <p className="text-xs font-semibold text-ink mt-1">Role Security</p>
                 <p className="text-[11px] text-ink-muted mt-1">Strict role-based data isolation</p>
               </div>
-              <div className="panel p-5 bg-paper">
-                <p className="font-display text-3xl font-bold text-teal">Real-time</p>
+              <div className="panel p-4 sm:p-5 bg-paper">
+                <p className="font-display text-2xl sm:text-3xl font-bold text-teal">Real-time</p>
                 <p className="text-xs font-semibold text-ink mt-1">Cohort Analytics</p>
                 <p className="text-[11px] text-ink-muted mt-1">Departmental placement metrics</p>
               </div>
@@ -157,17 +157,17 @@ const LandingPage = () => {
       </section>
 
       <section id="features" className="border-t border-sage bg-paper">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="max-w-2xl mb-12">
-            <h2 className="font-display text-3xl font-semibold text-ink tracking-tight">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+          <div className="max-w-2xl mb-8 sm:mb-12">
+            <h2 className="font-display text-2xl sm:text-3xl font-semibold text-ink tracking-tight">
               Student features
             </h2>
-            <p className="mt-3 text-ink-muted">
+            <p className="mt-2 sm:mt-3 text-ink-muted text-sm sm:text-base">
               Everything you need for campus drives in one student portal.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-8">
             <div className="panel p-6">
               <div className="w-11 h-11 rounded-xl bg-teal-soft text-teal flex items-center justify-center mb-4">
                 <FileCheck className="w-5 h-5" />

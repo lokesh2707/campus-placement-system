@@ -236,7 +236,7 @@ const JobSearchPage = () => {
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-sage flex items-center justify-between">
+              <div className="mt-6 pt-4 border-t border-sage flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <span className="text-xs text-ink-muted">
                   Posted {new Date(job.createdAt).toLocaleDateString()}
                 </span>
@@ -246,7 +246,7 @@ const JobSearchPage = () => {
                     setApplyMsg("");
                     setApplyError("");
                   }}
-                  className="px-4 py-2 bg-teal hover:bg-teal-deep text-white font-semibold rounded-xl text-xs transition shadow-xs"
+                  className="w-full sm:w-auto px-4 py-2 bg-teal hover:bg-teal-deep text-white font-semibold rounded-xl text-xs transition shadow-xs text-center"
                 >
                   View Details & Apply
                 </button>

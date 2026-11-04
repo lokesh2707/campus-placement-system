@@ -308,17 +308,17 @@ const StudentDirectoryPage = () => {
             <span>Incomplete Profiles Only</span>
           </label>
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-stretch sm:justify-end">
             <button
               type="button"
               onClick={handleResetFilters}
-              className="px-3 py-2 text-xs text-ink-muted hover:text-ink font-semibold"
+              className="flex-1 sm:flex-none px-3 py-2 text-xs text-ink-muted hover:text-ink font-semibold text-center rounded-xl border border-sage sm:border-transparent"
             >
               Reset
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-semibold transition shadow-xs"
+              className="flex-1 sm:flex-none px-5 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-semibold transition shadow-xs text-center"
             >
               Apply Filters
             </button>

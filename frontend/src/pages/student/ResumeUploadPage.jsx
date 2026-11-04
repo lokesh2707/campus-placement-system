@@ -241,7 +241,7 @@ const ResumeUploadPage = () => {
       )}
 
       {/* Upload Zone */}
-      <div className="panel p-8 shadow-xs mb-8">
+      <div className="panel p-4 sm:p-8 shadow-xs mb-8">
         <form onSubmit={handleUpload}>
           <div
             role="button"
@@ -277,7 +277,7 @@ const ResumeUploadPage = () => {
                 handleFileChange({ target: { files: [dropped] } });
               }
             }}
-            className={`border-2 border-dashed rounded-xl p-8 text-center transition cursor-pointer ${
+            className={`border-2 border-dashed rounded-xl p-4 sm:p-8 text-center transition cursor-pointer ${
               dragActive
                 ? "border-teal bg-teal-soft/40"
                 : "border-sage hover:border-teal"
@@ -514,7 +514,7 @@ const ResumeUploadPage = () => {
             <button
               onClick={handleSaveReviewedSkills}
               disabled={savingSkills}
-              className="px-6 py-2.5 bg-teal hover:bg-teal-deep text-white text-sm font-semibold rounded-xl transition shadow-sm disabled:opacity-50"
+              className="w-full sm:w-auto px-6 py-2.5 bg-teal hover:bg-teal-deep text-white text-sm font-semibold rounded-xl transition shadow-sm disabled:opacity-50 text-center"
             >
               {savingSkills ? "Saving to Profile..." : "Confirm & Save Reviewed Skills"}
             </button>

@@ -900,43 +900,43 @@ const AdminDashboard = () => {
       )}
 
       {/* Main Tabs Navigation */}
-      <div className="flex items-center justify-between border-b border-sage mb-6">
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-sage mb-6 gap-3 pb-2 sm:pb-0">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar whitespace-nowrap -mx-4 px-4 sm:mx-0 sm:px-0">
           <button
             onClick={() => setActiveTab("users")}
-            className={`pb-3 px-4 text-sm font-semibold transition border-b-2 ${
+            className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold transition border-b-2 shrink-0 ${
               activeTab === "users"
                 ? "border-teal text-teal"
                 : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <Users className="w-4 h-4" />
               <span>User Governance ({pagination.total || users.length})</span>
             </div>
           </button>
           <button
             onClick={() => setActiveTab("institutes")}
-            className={`pb-3 px-4 text-sm font-semibold transition border-b-2 ${
+            className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold transition border-b-2 shrink-0 ${
               activeTab === "institutes"
                 ? "border-teal text-teal"
                 : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <School className="w-4 h-4" />
               <span>Institutes & Campuses ({institutes.length})</span>
             </div>
           </button>
           <button
             onClick={() => setActiveTab("companies")}
-            className={`pb-3 px-4 text-sm font-semibold transition border-b-2 ${
+            className={`pb-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold transition border-b-2 shrink-0 ${
               activeTab === "companies"
                 ? "border-teal text-teal"
                 : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <Building className="w-4 h-4" />
               <span>Companies & Employers ({companies.length})</span>
             </div>
@@ -944,11 +944,11 @@ const AdminDashboard = () => {
         </div>
 
         {/* Action Buttons according to Active Tab */}
-        <div>
+        <div className="w-full sm:w-auto shrink-0">
           {activeTab === "users" && (
             <button
               onClick={() => setShowUserModal(true)}
-              className="btn-primary py-2 px-3.5 text-xs inline-flex items-center gap-1.5 shadow-xs"
+              className="btn-primary w-full sm:w-auto py-2 px-3.5 text-xs inline-flex items-center justify-center gap-1.5 shadow-xs"
             >
               <PlusCircle className="w-4 h-4" /> Provision Officer / Admin
             </button>
@@ -956,7 +956,7 @@ const AdminDashboard = () => {
           {activeTab === "institutes" && (
             <button
               onClick={() => setShowInstituteModal(true)}
-              className="btn-primary py-2 px-3.5 text-xs inline-flex items-center gap-1.5 shadow-xs"
+              className="btn-primary w-full sm:w-auto py-2 px-3.5 text-xs inline-flex items-center justify-center gap-1.5 shadow-xs"
             >
               <PlusCircle className="w-4 h-4" /> Register Institute / Campus
             </button>
@@ -964,7 +964,7 @@ const AdminDashboard = () => {
           {activeTab === "companies" && (
             <button
               onClick={() => setShowCompanyModal(true)}
-              className="btn-primary py-2 px-3.5 text-xs inline-flex items-center gap-1.5 shadow-xs"
+              className="btn-primary w-full sm:w-auto py-2 px-3.5 text-xs inline-flex items-center justify-center gap-1.5 shadow-xs"
             >
               <PlusCircle className="w-4 h-4" /> Register Company
             </button>

@@ -45,8 +45,8 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] campus-atmosphere flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full panel p-8 animate-fade-up shadow-sm">
+    <div className="min-h-[calc(100vh-4rem)] campus-atmosphere flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full panel p-5 sm:p-8 animate-fade-up shadow-sm">
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-xl bg-teal-soft text-teal flex items-center justify-center mx-auto mb-3">
             <UserPlus className="w-6 h-6" />

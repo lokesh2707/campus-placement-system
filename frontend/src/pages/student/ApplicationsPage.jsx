@@ -133,7 +133,7 @@ const ApplicationsPage = () => {
           {applications.map((app) => (
             <div
               key={app._id}
-              className="panel p-6 shadow-xs space-y-4"
+              className="panel p-4 sm:p-6 shadow-xs space-y-4"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sage">
                 <div>

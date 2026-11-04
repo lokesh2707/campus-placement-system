@@ -16,6 +16,14 @@
 }
 
 @layer base {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     background-color: var(--color-paper);
     color: var(--color-ink);
@@ -245,6 +253,21 @@
   }
   .modal-scroll::-webkit-scrollbar-thumb:hover {
     background-color: rgba(11, 95, 92, 0.45);
+  }
+
+  /* Responsive Touch & Scroll Utilities */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

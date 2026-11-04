@@ -18,7 +18,7 @@ const AboutPage = () => {
   return (
     <div className="bg-paper min-h-full">
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-16 sm:py-24 border-b border-sage bg-surface">
+      <section className="relative overflow-hidden py-12 sm:py-20 border-b border-sage bg-surface">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-soft text-teal border border-sage mb-4">
@@ -43,7 +43,7 @@ const AboutPage = () => {
       </section>
 
       {/* Key Pillars */}
-      <section className="py-20 border-b border-sage">
+      <section className="py-12 sm:py-20 border-b border-sage">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <h2 className="font-display text-3xl font-semibold text-ink tracking-tight">
@@ -185,12 +185,12 @@ const AboutPage = () => {
             </div>
 
             {/* Stats / Metrics Card */}
-            <div className="panel p-8 bg-paper border-2 border-sage/80 shadow-sm">
+            <div className="panel p-5 sm:p-8 bg-paper border-2 border-sage/80 shadow-sm">
               <h3 className="font-display text-xl font-bold text-ink mb-6">
                 Platform Performance & Trust Benchmarks
               </h3>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="p-4 rounded-xl bg-surface border border-sage">
                   <p className="font-display text-3xl font-bold text-teal">100%</p>
                   <p className="text-xs font-medium text-ink mt-1">Local Processing</p>
@@ -228,7 +228,7 @@ const AboutPage = () => {
       </section>
 
       {/* Institutional CTA */}
-      <section className="py-16">
+      <section className="py-12 sm:py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <GraduationCap className="w-12 h-12 text-teal mx-auto mb-4" />
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink tracking-tight">
@@ -237,7 +237,7 @@ const AboutPage = () => {
           <p className="mt-3 text-ink-muted text-sm sm:text-base max-w-xl mx-auto">
             Get started by creating your verified student profile or connecting with your institutional placement cell.
           </p>
-          <div className="mt-8 flex justify-center gap-4">
+          <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
             <Link to="/student/register" className="btn-primary px-7 py-3 text-sm">
               Register as Student
             </Link>

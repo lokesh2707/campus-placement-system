@@ -392,14 +392,14 @@ const OfficerDashboard = () => {
             Live institutional metrics, company verification, and placement report exports.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full lg:w-auto">
           <button
             type="button"
             disabled={!!exportBusy}
             onClick={() =>
               downloadCsv("/api/analytics/export/students", "student-placement-report.csv")
             }
-            className="btn-primary px-4 py-2 text-sm inline-flex items-center gap-2 disabled:opacity-50"
+            className="btn-primary w-full sm:w-auto px-4 py-2 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             {exportBusy.includes("students") ? "Exporting..." : "Export Student Report"}
@@ -410,7 +410,7 @@ const OfficerDashboard = () => {
             onClick={() =>
               downloadCsv("/api/analytics/export/placements", "placement-outcomes-report.csv")
             }
-            className="btn-secondary px-4 py-2 text-sm inline-flex items-center gap-2 disabled:opacity-50"
+            className="btn-secondary w-full sm:w-auto px-4 py-2 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             {exportBusy.includes("placements") ? "Exporting..." : "Export Placement Report"}
