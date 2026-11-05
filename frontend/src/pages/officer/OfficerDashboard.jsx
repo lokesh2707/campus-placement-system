@@ -385,10 +385,10 @@ const OfficerDashboard = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-semibold text-ink tracking-tight">
-            Campus Placement Analytics & Intelligence
-          </h1>
-          <p className="text-sm text-ink-muted mt-1">
+        <h1 className="text-3xl font-display font-semibold text-ink tracking-tight">
+          Campus Placement Analytics & Intelligence
+        </h1>
+        <p className="text-sm text-ink-muted mt-1">
             Live institutional metrics, company verification, and placement report exports.
           </p>
         </div>
@@ -420,7 +420,7 @@ const OfficerDashboard = () => {
 
       {exportErr && (
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <span>{exportErr}</span>
         </div>
       )}
@@ -546,7 +546,7 @@ const OfficerDashboard = () => {
                     <th className="py-3 px-3">Provisioned On</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--color-border)]">
+                <tbody className="divide-y divide-border">
                   {recruiters.map((rec) => (
                     <tr key={rec._id} className="hover:bg-paper">
                       <td className="py-3 px-3">
@@ -630,7 +630,7 @@ const OfficerDashboard = () => {
                   <th className="py-3 px-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--color-border)]">
+              <tbody className="divide-y divide-border">
                 {companies
                   .filter((c) => {
                     if (companyFilter === "authorized") return c.isAuthorizedForMyInstitute;
@@ -768,7 +768,7 @@ const OfficerDashboard = () => {
                   <th className="py-3 px-3">Recruitment Pipeline Breakdown</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--color-border)]">
+              <tbody className="divide-y divide-border">
                 {drives
                   .filter((d) => {
                     if (driveFilter === "open") return d.status === "open";
@@ -976,7 +976,7 @@ const OfficerDashboard = () => {
                   <th className="py-3 px-4">Recommended Placement Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--color-border)]">
+              <tbody className="divide-y divide-border">
                 {skillStats.skillGaps.map((item) => (
                   <tr key={item.skill} className="hover:bg-paper">
                     <td className="py-3 px-4 font-semibold text-ink">{item.skill}</td>

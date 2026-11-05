@@ -1039,7 +1039,7 @@ const AdminDashboard = () => {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[var(--color-border)]">
+                  <tbody className="divide-y divide-border">
                     {users.map((u) => {
                       const isSelf = currentUser && String(currentUser._id || currentUser.id) === String(u._id);
                       const isPrivileged = ["PLACEMENT_OFFICER", "placement_officer", "SUPER_ADMIN", "admin", "RECRUITER", "recruiter"].includes(u.role);
@@ -1355,7 +1355,7 @@ const AdminDashboard = () => {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[var(--color-border)]">
+                  <tbody className="divide-y divide-border">
                     {companies.map((c) => (
                       <tr key={c._id} className="hover:bg-paper">
                         <td className="py-3 px-4 font-semibold text-ink">

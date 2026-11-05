@@ -7,6 +7,7 @@ const Application = require("../models/Application");
 const Job = require("../models/Job");
 const StudentProfile = require("../models/StudentProfile");
 const ResumeAnalysis = require("../models/ResumeAnalysis");
+const GeneratedResume = require("../models/GeneratedResume");
 const Company = require("../models/Company");
 const AdminAuditLog = require("../models/AdminAuditLog");
 const { normalizeRole, ROLES } = require("../constants/roles");
@@ -612,10 +613,10 @@ const getJobApplications = async (req, res, next) => {
     if (status) filter.status = status;
 
     let applications = await Application.find(filter)
-      .populate("student", "name email")
+      .populate("student", "name email phone")
       .populate(
         "studentProfile",
-        "rollNumber department batch cgpa backlogs skills resumeUrl projects experience"
+        "rollNumber department batch degree cgpa backlogs activeBacklogs skills technicalSkills resumeUrl resumeFileName resumeFileSize projects experience internships certifications phone institute githubUrl linkedinUrl portfolioUrl educationInstitution graduationYear"
       )
       .populate("resume", "originalFileName storedFileName fileSize extractedSkills isScanned createdAt")
       .sort({ createdAt: -1 });
@@ -633,10 +634,10 @@ const getJobApplications = async (req, res, next) => {
 
     // Refresh if any were evaluated
     applications = await Application.find(filter)
-      .populate("student", "name email")
+      .populate("student", "name email phone")
       .populate(
         "studentProfile",
-        "rollNumber department batch cgpa backlogs skills resumeUrl projects experience"
+        "rollNumber department batch degree cgpa backlogs activeBacklogs skills technicalSkills resumeUrl resumeFileName resumeFileSize projects experience internships certifications phone institute githubUrl linkedinUrl portfolioUrl educationInstitution graduationYear"
       )
       .populate("resume", "originalFileName storedFileName fileSize extractedSkills isScanned createdAt")
       .sort({ createdAt: -1 });
@@ -684,9 +685,57 @@ const getJobApplications = async (req, res, next) => {
       );
     }
 
+    const studentIds = applications.map((a) => a.student?._id || a.student).filter(Boolean);
+    const genResumes = await GeneratedResume.find({
+      student: { $in: studentIds },
+      status: "generated",
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const genResumeByStudent = {};
+    for (const g of genResumes) {
+      const sId = String(g.student);
+      if (!genResumeByStudent[sId]) genResumeByStudent[sId] = g;
+    }
+
+    const enrichedApplications = applications.map((app) => {
+      const appObj = typeof app.toObject === "function" ? app.toObject() : { ...app };
+      const sId = String(app.student?._id || app.student);
+      const gen = genResumeByStudent[sId];
+
+      const hasDirectResume = Boolean(
+        appObj.resume ||
+          (appObj.studentProfile?.resumeUrl && String(appObj.studentProfile.resumeUrl).trim())
+      );
+
+      const hasResume = hasDirectResume || Boolean(gen);
+      const resumeFileName =
+        appObj.resume?.originalFileName ||
+        appObj.studentProfile?.resumeFileName ||
+        gen?.fileName ||
+        "Candidate_Resume.pdf";
+
+      appObj.hasResume = hasResume;
+      appObj.resumeFileName = resumeFileName;
+      appObj.resumeUrl = hasResume ? `/api/applications/${appObj._id}/resume` : null;
+
+      if (gen) {
+        if (!appObj.studentProfile) appObj.studentProfile = {};
+        if (!appObj.studentProfile.resumeFileName) {
+          appObj.studentProfile.resumeFileName = gen.fileName;
+        }
+        if (!appObj.studentProfile.resumeUrl) {
+          appObj.studentProfile.resumeUrl = `/api/applications/${appObj._id}/resume`;
+        }
+      }
+
+      return appObj;
+    });
+
     res.status(200).json({
       success: true,
-      count: applications.length,
+      count: enrichedApplications.length,
       job: {
         _id: job._id,
         title: job.title,
@@ -694,7 +743,7 @@ const getJobApplications = async (req, res, next) => {
         preferredSkills: job.preferredSkills,
         eligibilityCriteria: job.eligibilityCriteria,
       },
-      applications,
+      applications: enrichedApplications,
     });
   } catch (error) {
     next(error);
@@ -872,19 +921,32 @@ const downloadApplicantResume = async (req, res, next) => {
       }
     }
 
-    if (!resolvedPath) {
-      return res.status(404).json({
-        success: false,
-        message: "Resume document is not available for this candidate",
-      });
+    if (resolvedPath) {
+      const safeFilename = fileName.replace(/[^\w.\-]+/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${safeFilename}"`);
+      return res.sendFile(resolvedPath);
     }
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="${fileName}"`
-    );
-    return res.sendFile(resolvedPath);
+    // Fallback: Check GeneratedResume stored in MongoDB Buffer
+    const genResume = await GeneratedResume.findOne({
+      student: application.student?._id || application.student,
+      status: "generated",
+    })
+      .select("+fileData")
+      .sort({ updatedAt: -1 });
+
+    if (genResume && genResume.fileData && genResume.fileData.length > 0) {
+      const safeFilename = (genResume.fileName || "candidate_resume.pdf").replace(/[^\w.\-]+/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${safeFilename}"`);
+      return res.end(genResume.fileData);
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "Resume document is not available for this candidate",
+    });
   } catch (error) {
     next(error);
   }

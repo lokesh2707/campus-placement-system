@@ -35,6 +35,25 @@
   .font-display {
     font-family: var(--font-display);
   }
+
+  /* Hide scrollbars project-wide (scrolling still works) */
+  *,
+  *::before,
+  *::after {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE / legacy Edge */
+  }
+
+  *::-webkit-scrollbar,
+  *::-webkit-scrollbar-button,
+  *::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
 }
 
 @layer utilities {
@@ -234,38 +253,43 @@
     animation: shimmer 1.8s infinite ease-in-out;
   }
 
-  /* Sleek custom scrollbar for modals & panels */
-  @supports (scrollbar-width: thin) {
-    .modal-scroll {
-      scrollbar-width: thin;
-      scrollbar-color: rgba(11, 95, 92, 0.25) transparent;
-    }
-  }
-  .modal-scroll::-webkit-scrollbar {
-    width: 6px;
-  }
-  .modal-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .modal-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(11, 95, 92, 0.25);
-    border-radius: 9999px;
-  }
-  .modal-scroll::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(11, 95, 92, 0.45);
-  }
-
-  /* Responsive Touch & Scroll Utilities */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
+  /* Explicit hide (same as global; kept for clarity in JSX) */
+  .no-scrollbar,
+  .modal-scroll {
+    scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  @supports (scrollbar-width: none) {
-    .no-scrollbar {
-      scrollbar-width: none;
-    }
+  .no-scrollbar::-webkit-scrollbar,
+  .modal-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Optional thin branded scrollbar — add class when a visible bar is preferred */
+  .show-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(11, 95, 92, 0.35) transparent;
+    -ms-overflow-style: auto;
+  }
+  .show-scrollbar::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+    height: 6px;
+  }
+  .show-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .show-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(11, 95, 92, 0.28);
+    border-radius: 9999px;
+  }
+  .show-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(11, 95, 92, 0.48);
+  }
+  .show-scrollbar::-webkit-scrollbar-corner {
+    display: block;
+    background: transparent;
   }
 
   .table-responsive {

@@ -9,6 +9,8 @@ const Job = require("../models/Job");
 const Application = require("../models/Application");
 const AdminAuditLog = require("../models/AdminAuditLog");
 const StudentProfile = require("../models/StudentProfile");
+const GeneratedResume = require("../models/GeneratedResume");
+const ResumeAnalysis = require("../models/ResumeAnalysis");
 const { ROLES, normalizeRole } = require("../constants/roles");
 const { computeProfileCompletion } = require("../utils/profileCompletion");
 const { buildCsv, sendCsvDownload, FORMULA_PREFIX } = require("../utils/csv");
@@ -1080,10 +1082,38 @@ const listInstituteStudents = async (req, res, next) => {
       });
     }
 
-    const studentsWithCompletion = profiles.map((p) => ({
-      ...p.toObject(),
-      completion: computeProfileCompletion(p),
-    }));
+    // Pre-fetch generated resumes to resolve resume presence for profiles missing disk resumeUrl
+    const studentUserIds = profiles.map((p) => p.user?._id || p.user).filter(Boolean);
+    const generatedResumes = await GeneratedResume.find({
+      student: { $in: studentUserIds },
+      status: "generated",
+    })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const genResumeByStudent = {};
+    for (const g of generatedResumes) {
+      const sId = String(g.student);
+      if (!genResumeByStudent[sId]) genResumeByStudent[sId] = g;
+    }
+
+    const studentsWithCompletion = profiles.map((p) => {
+      const pObj = p.toObject();
+      const sId = String(p.user?._id || p.user);
+      const gen = genResumeByStudent[sId];
+      if ((!pObj.resumeUrl || !String(pObj.resumeUrl).trim()) && gen) {
+        pObj.resumeUrl = `/api/officer/students/${p._id}/resume`;
+        pObj.resumeFileName = gen.fileName || "Student_Resume.pdf";
+        pObj.resumeFileSize = gen.fileSize || 0;
+      } else if (pObj.resumeUrl && String(pObj.resumeUrl).trim()) {
+        pObj.resumeUrl = `/api/officer/students/${p._id}/resume`;
+      }
+
+      return {
+        ...pObj,
+        completion: computeProfileCompletion(p),
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -1131,9 +1161,27 @@ const getInstituteStudentDetails = async (req, res, next) => {
       }
     }
 
+    const pObj = profile.toObject();
+    if (!pObj.resumeUrl || !String(pObj.resumeUrl).trim()) {
+      const gen = await GeneratedResume.findOne({
+        student: profile.user?._id || profile.user,
+        status: "generated",
+      })
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      if (gen) {
+        pObj.resumeUrl = `/api/officer/students/${profile._id}/resume`;
+        pObj.resumeFileName = gen.fileName || "Student_Resume.pdf";
+        pObj.resumeFileSize = gen.fileSize || 0;
+      }
+    } else {
+      pObj.resumeUrl = `/api/officer/students/${profile._id}/resume`;
+    }
+
     res.status(200).json({
       success: true,
-      student: profile,
+      student: pObj,
       completion: computeProfileCompletion(profile),
     });
   } catch (error) {
@@ -1496,27 +1544,51 @@ const getInstituteStudentResume = async (req, res, next) => {
       }
     }
 
-    if (!profile.resumeUrl) {
-      return res.status(404).json({
-        success: false,
-        message: "Resume document is not available for this student",
-      });
+    // 1. Check if candidate file exists on disk from profile.resumeUrl
+    if (profile.resumeUrl && !profile.resumeUrl.includes("/api/")) {
+      const candidateFile = path.join(RESUME_DIR, path.basename(profile.resumeUrl));
+      if (fs.existsSync(candidateFile)) {
+        const filename = profile.resumeFileName || `resume_${profile.rollNumber || "student"}.pdf`;
+        const safeFilename = filename.replace(/[^\w.\-]+/g, "_");
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `inline; filename="${safeFilename}"`);
+        return fs.createReadStream(candidateFile).pipe(res);
+      }
     }
 
-    const candidateFile = path.join(RESUME_DIR, path.basename(profile.resumeUrl));
-    if (!fs.existsSync(candidateFile)) {
-      return res.status(404).json({
-        success: false,
-        message: "Resume file not found on server",
-      });
+    // 2. Check GeneratedResume stored in MongoDB Buffer
+    const genResume = await GeneratedResume.findOne({
+      student: profile.user,
+      status: "generated",
+    })
+      .select("+fileData")
+      .sort({ updatedAt: -1 });
+
+    if (genResume && genResume.fileData && genResume.fileData.length > 0) {
+      const filename = genResume.fileName || `resume_${profile.rollNumber || "student"}.pdf`;
+      const safeFilename = filename.replace(/[^\w.\-]+/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${safeFilename}"`);
+      return res.end(genResume.fileData);
     }
 
-    const filename = profile.resumeFileName || `resume_${profile.rollNumber || "student"}.pdf`;
-    const safeFilename = filename.replace(/[^\w.\-]+/g, "_");
+    // 3. Check ResumeAnalysis record
+    const analysis = await ResumeAnalysis.findOne({
+      user: profile.user,
+    }).sort({ createdAt: -1 });
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${safeFilename}"`);
-    fs.createReadStream(candidateFile).pipe(res);
+    if (analysis && analysis.filePath && fs.existsSync(analysis.filePath)) {
+      const filename = analysis.originalFileName || `resume_${profile.rollNumber || "student"}.pdf`;
+      const safeFilename = filename.replace(/[^\w.\-]+/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${safeFilename}"`);
+      return fs.createReadStream(analysis.filePath).pipe(res);
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "Resume document is not available for this student",
+    });
   } catch (error) {
     next(error);
   }
@@ -1556,6 +1628,15 @@ const exportInstituteStudentsCsv = async (req, res, next) => {
       .sort({ department: 1, rollNumber: 1 })
       .lean();
 
+    const studentUserIds = profiles.map((p) => p.user?._id || p.user).filter(Boolean);
+    const generatedResumes = await GeneratedResume.find({
+      student: { $in: studentUserIds },
+      status: "generated",
+    })
+      .select("student")
+      .lean();
+    const genResumeUserSet = new Set(generatedResumes.map((g) => String(g.student)));
+
     const headers = [
       "rollNumber",
       "name",
@@ -1586,7 +1667,11 @@ const exportInstituteStudentsCsv = async (req, res, next) => {
       activeBacklogs: p.activeBacklogs ?? 0,
       skills: Array.isArray(p.skills) ? p.skills.map(sanitizeSegment).join("; ") : "",
       placementStatus: p.placementStatus || "seeking",
-      hasResume: !!(p.resumeUrl && String(p.resumeUrl).trim()) ? "Yes" : "No",
+      hasResume:
+        !!(p.resumeUrl && String(p.resumeUrl).trim()) ||
+        genResumeUserSet.has(String(p.user?._id || p.user))
+          ? "Yes"
+          : "No",
       accountActive: p.user?.isActive === false ? "false" : "true",
     }));
 

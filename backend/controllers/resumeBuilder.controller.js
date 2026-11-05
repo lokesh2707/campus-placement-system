@@ -498,6 +498,17 @@ const generateResume = async (req, res, next) => {
     pendingDoc.status = "generated";
     await pendingDoc.save();
 
+    // Automatically sync generated resume metadata to StudentProfile
+    try {
+      profile.resumeUrl = `/api/resume-builder/${pendingDoc._id}/download`;
+      profile.resumeFileName = pendingDoc.fileName;
+      profile.resumeFileSize = pendingDoc.fileSize;
+      profile.resumeUpdatedAt = new Date();
+      await profile.save();
+    } catch {
+      /* non-blocking if profile update fails */
+    }
+
     res.status(resumeToReplace ? 200 : 201).json({
       success: true,
       message: resumeToReplace

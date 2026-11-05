@@ -58,13 +58,13 @@ const RecruiterDashboard = () => {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12 animate-pulse space-y-6">
-        <div className="h-8 bg-[var(--color-border)] rounded w-1/4"></div>
-        <div className="h-28 bg-[var(--color-border)] rounded-2xl"></div>
+        <div className="h-8 bg-border rounded w-1/4"></div>
+        <div className="h-28 bg-border rounded-2xl"></div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="h-28 bg-[var(--color-border)] rounded-2xl"></div>
-          <div className="h-28 bg-[var(--color-border)] rounded-2xl"></div>
-          <div className="h-28 bg-[var(--color-border)] rounded-2xl"></div>
-          <div className="h-28 bg-[var(--color-border)] rounded-2xl"></div>
+          <div className="h-28 bg-border rounded-2xl"></div>
+          <div className="h-28 bg-border rounded-2xl"></div>
+          <div className="h-28 bg-border rounded-2xl"></div>
+          <div className="h-28 bg-border rounded-2xl"></div>
         </div>
       </div>
     );
@@ -316,7 +316,7 @@ const RecruiterDashboard = () => {
             )}
           </div>
         ) : (
-          <div className="divide-y divide-[var(--color-border)]">
+          <div className="divide-y divide-border">
             {jobs.map((job) => (
               <div
                 key={job._id}
