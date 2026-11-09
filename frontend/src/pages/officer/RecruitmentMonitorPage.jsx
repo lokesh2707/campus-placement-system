@@ -11,6 +11,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import AttendanceRoster from "../../components/AttendanceRoster";
 
 const emptyTotals = {
   activeDrives: 0,
@@ -222,6 +223,8 @@ const RecruitmentMonitorPage = () => {
           );
         })}
       </div>
+
+      {filters.job && <AttendanceRoster jobId={filters.job} token={token} readOnly />}
 
       {pendingOffers.length > 0 && (
         <div className="panel p-4 mb-6 border border-amber-200 bg-amber-50/40">

@@ -18,6 +18,7 @@ const {
   exportInstituteStudentsCsv,
 } = require("../controllers/officer.controller");
 const { resolveApplicationOffer } = require("../controllers/application.controller");
+const { officerInterviews } = require("../controllers/interview.controller");
 const { protect, authorize } = require("../middleware/auth");
 const { ROLES } = require("../constants/roles");
 
@@ -40,6 +41,7 @@ router.get("/recruiters", listRecruitersForOfficer);
 // Campus recruitment drive monitoring
 router.get("/drives", getInstituteDrives);
 router.get("/recruitment-monitor", getRecruitmentMonitor);
+router.get("/interviews", officerInterviews);
 router.get("/drives/:jobId", getInstituteDriveDetails);
 router.put("/applications/:id/offer-resolution", resolveApplicationOffer);
 

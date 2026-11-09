@@ -26,6 +26,8 @@ const ResumeBuilderPage = lazy(() => import("./pages/student/ResumeBuilderPage")
 const RecommendationsPage = lazy(() => import("./pages/student/RecommendationsPage"));
 const JobSearchPage = lazy(() => import("./pages/student/JobSearchPage"));
 const ApplicationsPage = lazy(() => import("./pages/student/ApplicationsPage"));
+const OffersPage = lazy(() => import("./pages/OffersPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 
 const RecruiterDashboard = lazy(() => import("./pages/recruiter/RecruiterDashboard"));
 const PostJobPage = lazy(() => import("./pages/recruiter/PostJobPage"));
@@ -80,6 +82,8 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+
+                <Route path="/notifications" element={<ProtectedRoute allowedRoles={["student", "recruiter", "placement_officer", "admin"]}><NotificationsPage /></ProtectedRoute>} />
 
                 {/* Student Routes */}
                 <Route
@@ -142,6 +146,7 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/student/offers" element={<ProtectedRoute allowedRoles={["student"]}><OffersPage /></ProtectedRoute>} />
 
                 {/* Recruiter Routes */}
                 <Route
@@ -152,6 +157,7 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/recruiter/offers" element={<ProtectedRoute allowedRoles={["recruiter"]}><OffersPage /></ProtectedRoute>} />
                 <Route
                   path="/recruiter/post-job"
                   element={
@@ -226,6 +232,7 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/placement-officer/offers" element={<ProtectedRoute allowedRoles={["placement_officer", "admin"]}><OffersPage /></ProtectedRoute>} />
                 <Route
                   path="/officer/dashboard"
                   element={<Navigate to="/placement-officer/dashboard" replace />}
@@ -248,6 +255,7 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route path="/admin/offers" element={<ProtectedRoute allowedRoles={["admin"]}><OffersPage /></ProtectedRoute>} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />

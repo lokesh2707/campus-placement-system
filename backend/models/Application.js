@@ -60,6 +60,15 @@ const ApplicationSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // Short-lived claim serializes Offer creation with resolution requests.
+    // It expires automatically so a worker crash cannot permanently block the Application.
+    offerCreationClaim: {
+      claimId: { type: String, default: null },
+      claimedAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null },
+      state: { type: String, enum: ["CREATING", "COMPLETED", null], default: null },
+      offerId: { type: mongoose.Schema.Types.ObjectId, ref: "Offer", default: null },
+    },
     aiEvaluation: {
       matchScore: { type: Number, min: 0, max: 100 },
       scoreSource: {

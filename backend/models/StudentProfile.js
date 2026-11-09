@@ -1,5 +1,53 @@
 const mongoose = require("mongoose");
 
+const SkillInventoryItemSchema = new mongoose.Schema({
+  canonicalKey: { type: String, required: true, trim: true, lowercase: true, maxlength: 80 },
+  displayName: { type: String, required: true, trim: true, maxlength: 80 },
+  source: {
+    type: String,
+    enum: ["student_declared", "resume_extracted", "legacy_profile_skill"],
+    required: true,
+  },
+  evidenceType: {
+    type: String,
+    enum: ["student_declaration", "resume_analysis", "profile_skill"],
+    required: true,
+  },
+  resumeAnalysis: { type: mongoose.Schema.Types.ObjectId, ref: "ResumeAnalysis", default: null },
+  evidenceReference: { type: String, trim: true, maxlength: 120, default: "" },
+  sourceCreatedAt: { type: Date, default: null },
+  reviewStatus: {
+    type: String,
+    enum: ["declared", "extracted_unreviewed", "student_confirmed", "student_rejected", "needs_review", "source_unknown"],
+    required: true,
+  },
+  selfReportedProficiency: {
+    type: String,
+    enum: ["beginner", "intermediate", "advanced", ""],
+    default: "",
+  },
+  }, { timestamps: true });
+
+SkillInventoryItemSchema.pre("validate", function () {
+  const expectedEvidenceType = {
+    student_declared: "student_declaration",
+    resume_extracted: "resume_analysis",
+    legacy_profile_skill: "profile_skill",
+  }[this.source];
+  if (expectedEvidenceType && this.evidenceType !== expectedEvidenceType) {
+    this.invalidate("evidenceType", "evidenceType must match skill source.");
+  }
+  if (this.source === "resume_extracted" && !this.resumeAnalysis) {
+    this.invalidate("resumeAnalysis", "Resume-extracted skills require a ResumeAnalysis reference.");
+  }
+  if (this.source !== "resume_extracted" && this.resumeAnalysis) {
+    this.invalidate("resumeAnalysis", "Only resume-extracted skills may reference ResumeAnalysis.");
+  }
+  if (this.source !== "student_declared" && this.selfReportedProficiency) {
+    this.invalidate("selfReportedProficiency", "Only student-declared skills may store self-assessed proficiency.");
+  }
+});
+
 const StudentProfileSchema = new mongoose.Schema(
   {
     user: {
@@ -147,6 +195,10 @@ const StudentProfileSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Additive, source-aware skill records. Existing flat `skills` remains the
+    // compatibility input for matching and is not rewritten by readiness edits.
+    // Private readiness data; must be explicitly selected by readiness handlers.
+    skillInventory: { type: [SkillInventoryItemSchema], default: [], select: false },
     // Categorized skill taxonomies
     technicalSkills: {
       type: [String],
@@ -282,5 +334,6 @@ StudentProfileSchema.index({ backlogs: 1 });
 StudentProfileSchema.index({ placementStatus: 1 });
 StudentProfileSchema.index({ skills: 1 });
 StudentProfileSchema.index({ technicalSkills: 1 });
+StudentProfileSchema.index({ institute: 1, "skillInventory.canonicalKey": 1 });
 
 module.exports = mongoose.model("StudentProfile", StudentProfileSchema);

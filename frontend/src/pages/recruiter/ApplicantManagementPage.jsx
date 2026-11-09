@@ -25,10 +25,12 @@ import {
   Globe,
   Award,
 } from "lucide-react";
+import AttendanceRoster from "../../components/AttendanceRoster";
 
 const ApplicantManagementPage = () => {
   const { jobId } = useParams();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const canManageAttendance = ["recruiter", "RECRUITER"].includes(user?.role);
 
   const [job, setJob] = useState(null);
   const [applications, setApplications] = useState([]);
@@ -220,6 +222,8 @@ const ApplicantManagementPage = () => {
           <span>{errorMsg}</span>
         </div>
       )}
+
+      {job && <AttendanceRoster jobId={jobId} token={token} readOnly={!canManageAttendance} />}
 
       {/* Filter and Control Bar */}
       <div className="panel p-5 shadow-xs mb-6 space-y-4">

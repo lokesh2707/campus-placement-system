@@ -19,6 +19,7 @@ import {
   HelpCircle,
   UserCheck
 } from "lucide-react";
+import InterviewRoundsPanel from "../../components/InterviewRoundsPanel";
 
 const ApplicantReviewPage = () => {
   const { jobId, applicationId } = useParams();
@@ -543,6 +544,7 @@ const ApplicantReviewPage = () => {
           </div>
         </div>
       </div>
+      <InterviewRoundsPanel applicationId={applicationId} token={token} />
     </div>
   );
 };

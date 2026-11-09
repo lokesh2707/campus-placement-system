@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Shield,
 } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -96,6 +97,9 @@ const Navbar = () => {
                   <Link to="/student/applications" className={linkClass("/student/applications")}>
                     <ClipboardList className="w-4 h-4" /> Applications
                   </Link>
+                  <Link to="/student/offers" className={linkClass("/student/offers")}>
+                    <ClipboardList className="w-4 h-4" /> Offers
+                  </Link>
                 </>
               )}
 
@@ -106,6 +110,9 @@ const Navbar = () => {
                   </Link>
                   <Link to="/recruiter/jobs/create" className={linkClass("/recruiter/jobs/create")}>
                     <PlusCircle className="w-4 h-4" /> Post a Job
+                  </Link>
+                  <Link to="/recruiter/offers" className={linkClass("/recruiter/offers")}>
+                    <ClipboardList className="w-4 h-4" /> Offers
                   </Link>
                 </>
               )}
@@ -130,13 +137,21 @@ const Navbar = () => {
                   >
                     <Briefcase className="w-4 h-4" /> Recruitment
                   </Link>
+                  <Link to="/placement-officer/offers" className={linkClass("/placement-officer/offers")}>
+                    <ClipboardList className="w-4 h-4" /> Offers
+                  </Link>
                 </>
               )}
 
               {userRole === "SUPER_ADMIN" && (
-                <Link to="/admin/dashboard" className={linkClass("/admin/dashboard")}>
-                  <Shield className="w-4 h-4" /> Admin Console
-                </Link>
+                <>
+                  <Link to="/admin/dashboard" className={linkClass("/admin/dashboard")}>
+                    <Shield className="w-4 h-4" /> Admin Console
+                  </Link>
+                  <Link to="/admin/offers" className={linkClass("/admin/offers")}>
+                    <ClipboardList className="w-4 h-4" /> Offers
+                  </Link>
+                </>
               )}
             </div>
           ) : (
@@ -154,10 +169,11 @@ const Navbar = () => {
           )}
 
           {/* Right: actions */}
-          <div className="hidden md:flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {user ? (
               <>
-                <div className="text-right leading-tight">
+                <NotificationBell />
+                <div className="hidden md:block text-right leading-tight">
                   <div className="text-sm font-semibold text-ink">{user.name}</div>
                   <span
                     className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
@@ -169,14 +185,14 @@ const Navbar = () => {
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center justify-center h-9 w-9 text-ink-muted hover:text-teal-deep hover:bg-teal-soft rounded-lg transition"
+                  className="hidden md:inline-flex items-center justify-center h-9 w-9 text-ink-muted hover:text-teal-deep hover:bg-teal-soft rounded-lg transition"
                   title="Log out"
                 >
                   <LogOut className="w-5 h-5" />
                 </button>
               </>
             ) : (
-              <>
+              <div className="hidden md:flex items-center gap-2">
                 <Link
                   to="/student/login"
                   className="inline-flex items-center h-9 px-3 text-sm font-semibold text-teal hover:bg-teal-soft rounded-lg transition"
@@ -189,7 +205,7 @@ const Navbar = () => {
                 >
                   Get Started
                 </Link>
-              </>
+              </div>
             )}
           </div>
 
@@ -230,6 +246,7 @@ const Navbar = () => {
                   <Link to="/student/recommendations" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">AI Matches</Link>
                   <Link to="/student/jobs" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Browse Jobs</Link>
                   <Link to="/student/applications" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">My Applications</Link>
+                  <Link to="/student/offers" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">My Offers</Link>
                 </>
               )}
 
@@ -237,6 +254,7 @@ const Navbar = () => {
                 <>
                   <Link to="/recruiter/dashboard" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Recruiter Hub</Link>
                   <Link to="/recruiter/jobs/create" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Post a Job</Link>
+                  <Link to="/recruiter/offers" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Offer Management</Link>
                 </>
               )}
 
@@ -245,14 +263,18 @@ const Navbar = () => {
                   <Link to="/placement-officer/dashboard" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Placement Analytics</Link>
                   <Link to="/placement-officer/students" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Student Directory</Link>
                   <Link to="/placement-officer/recruitment" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Recruitment</Link>
+                  <Link to="/placement-officer/offers" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Offer Monitoring</Link>
                 </>
               )}
 
               {userRole === "SUPER_ADMIN" && (
-                <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">
-                  Admin Console
-                </Link>
+                <>
+                  <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Admin Console</Link>
+                  <Link to="/admin/offers" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Offer Monitoring</Link>
+                </>
               )}
+
+              <Link to="/notifications" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-ink hover:bg-teal-soft">Notifications</Link>
 
               <button
                 onClick={() => {

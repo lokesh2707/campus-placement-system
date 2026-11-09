@@ -37,6 +37,8 @@ const OfficerDashboard = () => {
   const { token } = useAuth();
   const [overview, setOverview] = useState(null);
   const [skillStats, setSkillStats] = useState(null);
+  const [readinessStats, setReadinessStats] = useState(null);
+  const [readinessStatsError, setReadinessStatsError] = useState("");
   const [loading, setLoading] = useState(true);
 
   // Corporate Partners & Campus Recruiter States
@@ -319,22 +321,27 @@ const OfficerDashboard = () => {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const [overviewRes, skillRes] = await Promise.all([
+        const [overviewRes, skillRes, readinessRes] = await Promise.all([
           fetch("/api/analytics/overview", {
             headers: authHeaders,
           }),
           fetch("/api/analytics/skills", {
             headers: authHeaders,
           }),
+          fetch("/api/readiness/institute/summary", { headers: authHeaders }),
         ]);
 
         const oData = await overviewRes.json();
         const sData = await skillRes.json();
+        const readinessData = await readinessRes.json();
 
         if (oData.success) setOverview(oData.data);
         if (sData.success) setSkillStats(sData.data);
+        if (readinessData.success) setReadinessStats(readinessData.summary);
+        else setReadinessStatsError(readinessData.message || "Readiness aggregate is unavailable.");
       } catch (err) {
         console.error("Failed to load analytics:", err);
+        setReadinessStatsError("Readiness aggregate is unavailable.");
       } finally {
         setLoading(false);
       }
@@ -951,18 +958,46 @@ const OfficerDashboard = () => {
         </div>
       </div>
 
-      {/* Institutional Skill Gaps Card */}
+      <section aria-labelledby="readiness-aggregate-title" className="panel p-6 shadow-xs mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Lightbulb aria-hidden="true" className="w-5 h-5 text-amber-500" />
+          <h2 id="readiness-aggregate-title" className="text-base font-semibold text-ink">Placement readiness · institute aggregates</h2>
+        </div>
+        <p className="text-xs text-ink-muted mb-4">Recorded data coverage and open opportunity demand. Skill records are not verified proficiency and this view does not rank students.</p>
+        {readinessStatsError ? <p role="alert" className="text-sm text-rose-700">{readinessStatsError}</p>
+          : !readinessStats ? <p role="status" className="text-sm text-ink-muted">Loading readiness aggregates…</p>
+            : readinessStats.suppressed ? <p className="rounded-xl bg-paper border border-sage p-4 text-sm text-ink-muted">{readinessStats.message} Minimum group size: {readinessStats.minimumCellSize}.</p>
+              : <div className="space-y-4">
+                <p className="text-xs font-medium text-ink-muted">Scope: {readinessStats.scope.instituteName || "Platform"} · {readinessStats.studentCount} student profiles</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                  {[
+                    ["Profiles with resume", readinessStats.profileCoverage.profilesWithResume],
+                    ["Profiles with academic fields", readinessStats.profileCoverage.profilesWithAcademicFields],
+                    ["Profiles with student declarations", readinessStats.skillSourceDistribution.profilesWithStudentDeclaredSkills],
+                    ["Profiles with resume-extracted entries", readinessStats.skillSourceDistribution.profilesWithResumeExtractedSkills],
+                    ["Profiles with legacy flat skills", readinessStats.skillSourceDistribution.profilesWithLegacyFlatSkillsOfUnknownProvenance],
+                  ].map(([label, stat]) => <div key={label} className="rounded-xl bg-paper border border-sage p-3"><p className="text-xs text-ink-muted">{label}</p><p className="text-lg font-semibold text-ink mt-1">{stat.count === null ? "Suppressed" : stat.count}</p></div>)}
+                </div>
+                <p className="text-[11px] text-amber-800">{readinessStats.skillSourceDistribution.note}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[["Common required skills", readinessStats.opportunityDemand.requiredSkills], ["Common preferred skills", readinessStats.opportunityDemand.preferredSkills]].map(([label, skills]) => <div key={label} className="rounded-xl border border-sage p-3"><h3 className="text-sm font-semibold text-ink mb-2">{label}</h3>{skills.length ? <ul className="flex flex-wrap gap-2">{skills.map((skill) => <li key={skill.canonicalKey} className="rounded-full bg-teal-soft text-teal-deep px-2.5 py-1 text-xs">{skill.displayName} · {skill.jobCount} jobs</li>)}</ul> : <p className="text-xs text-ink-muted">No current demand data.</p>}</div>)}
+                </div>
+                {readinessStats.opportunityDemand.capped && <p className="text-[11px] text-ink-muted">Demand was computed from a bounded recent sample of {readinessStats.opportunityDemand.evaluatedJobCount} jobs.</p>}
+              </div>}
+      </section>
+
+      {/* Legacy flat-string comparison is retained but explicitly not a proficiency measure. */}
       <div className="panel p-6 shadow-xs">
         <div className="flex items-center gap-2 mb-4">
           <Lightbulb className="w-5 h-5 text-amber-500" />
           <h2 className="text-base font-semibold text-ink">
-            Institutional Skill Gaps (High Employer Demand vs. Low Student Supply)
+            Legacy demand comparison (profile skill strings are unverified)
           </h2>
         </div>
 
         {!skillStats?.skillGaps || skillStats.skillGaps.length === 0 ? (
           <div className="text-center py-10 text-ink-muted text-sm">
-            Insufficient job data to compute skill supply gaps.
+            No legacy profile-skill string comparison is available.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -971,9 +1006,9 @@ const OfficerDashboard = () => {
                 <tr>
                   <th className="py-3 px-4">Technology Skill</th>
                   <th className="py-3 px-4">Job Demand (Open Roles)</th>
-                  <th className="py-3 px-4">Student Supply (Profiles)</th>
-                  <th className="py-3 px-4">Net Talent Gap</th>
-                  <th className="py-3 px-4">Recommended Placement Action</th>
+                  <th className="py-3 px-4">Profiles with matching strings (unverified)</th>
+                  <th className="py-3 px-4">String count comparison</th>
+                  <th className="py-3 px-4">Interpretation</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -986,13 +1021,11 @@ const OfficerDashboard = () => {
                       <span className={`px-2 py-0.5 rounded-md font-bold ${
                         item.gap > 0 ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
                       }`}>
-                        {item.gap > 0 ? `-${item.gap} deficit` : "Balanced"}
+                        {item.gap > 0 ? `Demand exceeds string count by ${item.gap}` : "String count meets demand"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-ink-muted">
-                      {item.gap > 0
-                        ? `Organize a campus workshop / training drive on ${item.skill}.`
-                        : "Adequate competency coverage across active students."}
+                      This comparison does not measure competency or verified proficiency.
                     </td>
                   </tr>
                 ))}

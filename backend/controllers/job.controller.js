@@ -8,6 +8,7 @@ const {
   verifiedCompanyJobFilter,
 } = require("../utils/verifiedJobs");
 const { normalizeRole, ROLES } = require("../constants/roles");
+const { verifyJobManagementAccess } = require("../utils/tenantAccess");
 
 /**
  * @desc   Create a company profile (always unverified)
@@ -454,25 +455,9 @@ const updateJob = async (req, res, next) => {
       });
     }
 
-    const userRole = normalizeRole(req.user.role);
-    if (userRole === ROLES.RECRUITER) {
-      const isJobCompanyMatch = req.user.company && String(job.company) === String(req.user.company);
-      const isJobOwnerMatch = job.postedBy && String(job.postedBy) === String(req.user._id);
-      if (!isJobCompanyMatch && !isJobOwnerMatch) {
-        return res.status(403).json({
-          success: false,
-          message: "You are not authorized to update this job listing",
-        });
-      }
-    } else if (
-      userRole !== ROLES.PLACEMENT_OFFICER &&
-      userRole !== ROLES.SUPER_ADMIN
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to update this job listing",
-      });
-    }
+    const company = await Company.findById(job.company).select("isVerified isActive authorizedInstitutes");
+    const access = verifyJobManagementAccess({ user: req.user, job, company });
+    if (!access.authorized) return res.status(403).json({ success: false, message: access.message });
 
     // Allow only safe job fields — never company verification metadata via this route
     const allowed = [
@@ -576,25 +561,9 @@ const deleteJob = async (req, res, next) => {
       });
     }
 
-    const userRole = normalizeRole(req.user.role);
-    if (userRole === ROLES.RECRUITER) {
-      const isJobCompanyMatch = req.user.company && String(job.company) === String(req.user.company);
-      const isJobOwnerMatch = job.postedBy && String(job.postedBy) === String(req.user._id);
-      if (!isJobCompanyMatch && !isJobOwnerMatch) {
-        return res.status(403).json({
-          success: false,
-          message: "You are not authorized to delete this job listing",
-        });
-      }
-    } else if (
-      userRole !== ROLES.PLACEMENT_OFFICER &&
-      userRole !== ROLES.SUPER_ADMIN
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to delete this job listing",
-      });
-    }
+    const company = await Company.findById(job.company).select("isVerified isActive authorizedInstitutes");
+    const access = verifyJobManagementAccess({ user: req.user, job, company });
+    if (!access.authorized) return res.status(403).json({ success: false, message: access.message });
 
     await job.deleteOne();
 

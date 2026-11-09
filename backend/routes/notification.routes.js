@@ -1,0 +1,10 @@
+const express = require("express");
+const { protect, authorize } = require("../middleware/auth");
+const { listNotifications, unreadCount, markRead, markAllRead } = require("../controllers/notification.controller");
+const router = express.Router();
+router.use(protect, authorize("student", "recruiter", "placement_officer", "admin"));
+router.get("/", listNotifications);
+router.get("/unread-count", unreadCount);
+router.patch("/read-all", markAllRead);
+router.patch("/:id/read", markRead);
+module.exports = router;

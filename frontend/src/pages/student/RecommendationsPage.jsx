@@ -14,6 +14,7 @@ import {
   X
 } from "lucide-react";
 import { CardSkeleton } from "../../components/Loader";
+import ReadinessPanel from "../../components/readiness/ReadinessPanel";
 
 const RecommendationsPage = () => {
   const { token } = useAuth();
@@ -88,6 +89,8 @@ const RecommendationsPage = () => {
           Ranked by our Python AI microservice using 70% required skill overlap, 15% preferred bonus, and 15% TF-IDF cosine semantic similarity.
         </p>
       </div>
+
+      <ReadinessPanel />
 
       {recommendations.length === 0 ? (
         <div className="panel p-12 text-center shadow-xs">

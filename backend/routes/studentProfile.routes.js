@@ -15,6 +15,7 @@ const {
   getAllProfiles,
   getProfileById,
 } = require("../controllers/studentProfile.controller");
+const { studentInterviews } = require("../controllers/interview.controller");
 const { protect, authorize } = require("../middleware/auth");
 const { ROLES } = require("../constants/roles");
 
@@ -96,6 +97,7 @@ router
 router
   .route("/profile/completion")
   .get(protect, authorize(ROLES.STUDENT, "student"), getProfileCompletionStatus);
+router.get("/my-interviews", protect, authorize(ROLES.STUDENT, "student"), studentInterviews);
 
 // Sub-resource updates
 router

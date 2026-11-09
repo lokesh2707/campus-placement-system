@@ -19,6 +19,12 @@ const ApplicationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [actionMsg, setActionMsg] = useState("");
   const [actionError, setActionError] = useState("");
+  const [interviews, setInterviews] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [attendanceError, setAttendanceError] = useState("");
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [attendancePages, setAttendancePages] = useState(1);
 
   const fetchApplications = async () => {
     try {
@@ -29,6 +35,9 @@ const ApplicationsPage = () => {
       if (data.success) {
         setApplications(data.applications || []);
       }
+      const interviewRes = await fetch("/api/students/my-interviews", { headers: { Authorization: `Bearer ${token}` } });
+      const interviewData = await interviewRes.json();
+      if (interviewData.success) setInterviews(interviewData.rounds || []);
     } catch (err) {
       console.error("Failed to load applications:", err);
     } finally {
@@ -39,6 +48,24 @@ const ApplicationsPage = () => {
   useEffect(() => {
     fetchApplications();
   }, [token]);
+
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      setAttendanceLoading(true);
+      setAttendanceError("");
+      try {
+        const response = await fetch(`/api/attendance/me?page=${attendancePage}&limit=25`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Could not load attendance history.");
+        setAttendance(data.rows || []);
+        setAttendancePages(data.pagination?.pages || 1);
+      } catch {
+        setAttendanceError("Attendance history could not be loaded.");
+        setAttendance([]);
+      } finally { setAttendanceLoading(false); }
+    };
+    if (token) fetchAttendance();
+  }, [token, attendancePage]);
 
   const handleWithdraw = async (appId) => {
     if (!window.confirm("Are you sure you want to withdraw this application?")) return;
@@ -113,6 +140,14 @@ const ApplicationsPage = () => {
           <span>{actionError}</span>
         </div>
       )}
+      <section className="panel p-5 mb-6"><h2 className="font-display font-semibold text-ink">Interview Schedule</h2>{interviews.length ? <div className="mt-3 space-y-2">{interviews.map((r) => <div key={r._id} className="text-xs border border-sage rounded-lg p-3"><b>{r.job?.title || "Job"} — {r.roundName}</b><div className="text-ink-muted mt-1">{new Date(r.scheduledAt).toLocaleString()} · {r.interviewMode} · {r.status}</div>{r.meetingLink && <a className="text-teal block mt-1" href={r.meetingLink} target="_blank" rel="noreferrer">Join meeting</a>}{r.location && <div className="mt-1">{r.location}</div>}</div>)}</div> : <p className="text-xs text-ink-muted mt-2">No interviews scheduled.</p>}</section>
+
+      <section className="panel p-5 mb-6" aria-labelledby="my-attendance-heading">
+        <h2 id="my-attendance-heading" className="font-display font-semibold text-ink">Drive attendance</h2>
+        <p className="text-xs text-ink-muted mt-1">Attendance is recorded separately from application status.</p>
+        {attendanceError ? <p role="alert" className="mt-3 text-sm text-red-700">{attendanceError}</p> : attendanceLoading ? <p role="status" className="mt-3 text-sm text-ink-muted">Loading attendance…</p> : attendance.length === 0 ? <p className="mt-3 text-sm text-ink-muted">No application attendance records to display yet.</p> : <div className="mt-3 space-y-2">{attendance.map((row) => <article key={row.applicationId} className="rounded-lg border border-sage p-3"><p className="font-medium text-ink">{row.job?.title || "Job"} · {row.company?.name || "Company"}</p><p className="text-sm mt-1">{row.status === "NOT_RECORDED" ? "Not recorded" : row.status}</p>{row.recordedAt && <p className="text-xs text-ink-muted mt-1">Recorded {new Date(row.recordedAt).toLocaleString()}</p>}</article>)}</div>}
+        {!attendanceError && attendancePages > 1 && <div className="mt-3 flex items-center justify-end gap-2 text-xs"><button type="button" className="rounded border border-sage px-3 py-1.5 disabled:opacity-40" disabled={attendancePage <= 1 || attendanceLoading} onClick={() => setAttendancePage((page) => page - 1)}>Previous</button><span>Page {attendancePage} of {attendancePages}</span><button type="button" className="rounded border border-sage px-3 py-1.5 disabled:opacity-40" disabled={attendancePage >= attendancePages || attendanceLoading} onClick={() => setAttendancePage((page) => page + 1)}>Next</button></div>}
+      </section>
 
       {applications.length === 0 ? (
         <div className="panel p-12 text-center shadow-xs">

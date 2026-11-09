@@ -2,8 +2,10 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const mongoose = require("mongoose");
+const publishBusinessEvent = require("../services/publishBusinessEvent");
 const User = require("../models/User");
 const Application = require("../models/Application");
+const Offer = require("../models/Offer");
 const Job = require("../models/Job");
 const StudentProfile = require("../models/StudentProfile");
 const ResumeAnalysis = require("../models/ResumeAnalysis");
@@ -18,6 +20,12 @@ const {
   resumePendingOfferResolutions,
 } = require("../utils/offerRecovery");
 const { isDepartmentAllowed } = require("../utils/departmentMatch");
+const { verifyStudentJobAccess } = require("../utils/tenantAccess");
+
+// Capability used only by the Offer controller after it has authorized an
+// actor and atomically claimed the linked Offer. The registered legacy route
+// never receives this capability, so STUDENT is not added to its role policy.
+const OFFER_RESOLUTION_CAPABILITY = Symbol("offer-managed-resolution");
 
 /**
  * Helper to safely extract MongoDB ObjectId string from reference or object
@@ -184,7 +192,7 @@ const applyToJob = async (req, res, next) => {
       });
     }
 
-    const job = await Job.findById(jobId).populate("company", "name isVerified");
+    const job = await Job.findById(jobId).populate("company", "name isVerified isActive authorizedInstitutes");
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -192,7 +200,7 @@ const applyToJob = async (req, res, next) => {
       });
     }
 
-    if (!job.company || job.company.isVerified !== true) {
+    if (!job.company || job.company.isVerified !== true || job.company.isActive === false) {
       return res.status(403).json({
         success: false,
         message:
@@ -205,6 +213,11 @@ const applyToJob = async (req, res, next) => {
         success: false,
         message: "This job listing is no longer accepting applications.",
       });
+    }
+
+    const tenantCheck = verifyStudentJobAccess({ studentProfile, user: req.user, job, company: job.company });
+    if (!tenantCheck.authorized) {
+      return res.status(403).json({ success: false, message: tenantCheck.message });
     }
 
     if (job.deadline && isDeadlinePassed(job.deadline)) {
@@ -280,6 +293,8 @@ const applyToJob = async (req, res, next) => {
         },
       ],
     });
+
+    await publishBusinessEvent({ eventType: "APPLICATION_SUBMITTED", aggregateType: "Application", aggregateId: application._id, actor: req.user._id, institute: application.institute, company: application.company, idempotencyKey: `application:${application._id}:submitted` });
 
     const populated = await Application.findById(application._id)
       .populate("job", "title location employmentType")
@@ -977,7 +992,7 @@ const updateApplicationStatus = async (req, res, next) => {
       });
     }
 
-    const application = await Application.findById(req.params.id)
+    let application = await Application.findById(req.params.id)
       .populate("job")
       .populate("studentProfile", "institute");
     if (!application) {
@@ -1065,23 +1080,27 @@ const updateApplicationStatus = async (req, res, next) => {
       reservedOnJob = true;
     }
 
-    application.status = status;
-    application.statusHistory.push({
-      status,
-      changedAt: new Date(),
-      changedBy: req.user._id,
-      note: note || `Stage updated to ${status}`,
-    });
-
-    try {
-      await application.save();
-    } catch (saveErr) {
+    const updatedApplication = await Application.findOneAndUpdate(
+      { _id: application._id, status: currentStatus },
+      {
+        $set: { status },
+        $push: { statusHistory: { status, changedAt: new Date(), changedBy: req.user._id, note: note || `Stage updated to ${status}` } },
+      },
+      { new: true, returnDocument: "after" }
+    );
+    if (!updatedApplication) {
       if (reservedOnJob) {
         await Job.findByIdAndUpdate(application.job._id || application.job, {
           $pull: { selectedApplications: application._id },
         });
       }
-      throw saveErr;
+      return res.status(409).json({ success: false, message: "Application status changed; retry after refreshing." });
+    }
+    application = updatedApplication;
+
+    if (currentStatus !== status) {
+      const latestHistory = updatedApplication.statusHistory?.[updatedApplication.statusHistory.length - 1];
+      await publishBusinessEvent({ eventType: "APPLICATION_STATUS_CHANGED", aggregateType: "Application", aggregateId: updatedApplication._id, actor: req.user._id, institute: updatedApplication.institute, company: updatedApplication.company, payload: { toStatus: status }, idempotencyKey: `application:${updatedApplication._id}:status:${latestHistory?._id || updatedApplication.updatedAt.getTime()}` });
     }
 
     // If marked Selected, update student placement status and verified placement outcome
@@ -1140,27 +1159,33 @@ const withdrawApplication = async (req, res, next) => {
       });
     }
 
-    if (application.status === "Selected" || application.status === "Rejected") {
-      return res.status(400).json({
+    const withdrawableStatuses = ["Applied", "Shortlisted", "Under Review", "Assessment", "Interview"];
+    if (!withdrawableStatuses.includes(application.status)) {
+      return res.status(409).json({
         success: false,
-        message: `Cannot withdraw an application that has already concluded (${application.status}).`,
+        message: `Application can no longer be withdrawn (${application.status}).`,
       });
     }
 
-    application.status = "Withdrawn";
-    application.statusHistory.push({
-      status: "Withdrawn",
-      changedAt: new Date(),
-      changedBy: req.user._id,
-      note: "Withdrawn by candidate",
-    });
+    const changedAt = new Date();
+    const updated = await Application.findOneAndUpdate(
+      { _id: application._id, student: req.user._id, status: { $in: withdrawableStatuses } },
+      {
+        $set: { status: "Withdrawn" },
+        $push: { statusHistory: { status: "Withdrawn", changedAt, changedBy: req.user._id, note: "Withdrawn by candidate" } },
+      },
+      { new: true, returnDocument: "after" }
+    );
+    if (!updated) {
+      return res.status(409).json({ success: false, message: "Application status changed; withdrawal is no longer available." });
+    }
 
-    await application.save();
+    await publishBusinessEvent({ eventType: "APPLICATION_WITHDRAWN", aggregateType: "Application", aggregateId: updated._id, actor: req.user._id, institute: updated.institute, company: updated.company, idempotencyKey: `application:${updated._id}:withdrawn` });
 
     res.status(200).json({
       success: true,
       message: "Application withdrawn successfully",
-      application,
+      application: updated,
     });
   } catch (error) {
     next(error);
@@ -1173,8 +1198,9 @@ const withdrawApplication = async (req, res, next) => {
  * @route  PUT /api/applications/:id/offer-resolution
  * @access Protected (Placement Officer, Recruiter, Super Admin)
  */
-const resolveApplicationOffer = async (req, res, next) => {
+const resolveApplicationOfferImpl = async (req, res, next, capability) => {
   try {
+    const offerManaged = capability === OFFER_RESOLUTION_CAPABILITY;
     const { id } = req.params;
     const { resolutionStatus, reason } = req.body;
 
@@ -1217,11 +1243,15 @@ const resolveApplicationOffer = async (req, res, next) => {
       });
     }
 
+    const initiatingRole = normalizeRole(initiatingUser.role);
+    const studentOfferDecline = offerManaged
+      && initiatingRole === ROLES.STUDENT
+      && resolutionStatus === "Offer Declined";
     const permittedRoles = [ROLES.SUPER_ADMIN, ROLES.PLACEMENT_OFFICER, ROLES.RECRUITER];
-    if (!permittedRoles.includes(initiatingUser.role)) {
+    if (!permittedRoles.includes(initiatingRole) && !studentOfferDecline) {
       return res.status(403).json({
         success: false,
-        message: `User role '${initiatingUser.role}' is not authorized to resolve offers.`,
+        message: `User role '${initiatingRole}' is not authorized to resolve offers.`,
       });
     }
 
@@ -1238,11 +1268,61 @@ const resolveApplicationOffer = async (req, res, next) => {
       });
     }
 
-    const authCheck = verifyApplicationAccess(req.user, existingApp, { allowStudent: false });
+    const authCheck = verifyApplicationAccess(req.user, existingApp, { allowStudent: studentOfferDecline });
     if (!authCheck.authorized) {
       return res.status(authCheck.statusCode || 403).json({
         success: false,
         message: authCheck.message,
+      });
+    }
+
+    // When an Offer exists, its controller must persist the resolution intent first.
+    // This prevents the legacy application endpoint from resolving the Application
+    // while leaving the corresponding Offer in an issued/accepted state.
+    const linkedOffer = await Offer.findOne({ application: existingApp._id });
+    if (linkedOffer && (
+      linkedOffer.resolutionState !== "PENDING" ||
+      linkedOffer.resolutionStatus !== resolutionStatus ||
+      linkedOffer.resolutionOperationId !== req.body.offerOperationId
+    )) {
+      return res.status(409).json({
+        success: false,
+        message: "Resolve this candidate through the Offer Management workflow.",
+      });
+    }
+
+    // The internal student path is narrowly limited to the student's own
+    // currently-issued Offer and its authoritative Application references.
+    // All request-provided ownership and operation fields are excluded from
+    // the internal request constructed by runResolution.
+    if (studentOfferDecline) {
+      const sameRef = (left, right) => getEntityId(left) === getEntityId(right);
+      const referencesMatch = linkedOffer
+        && linkedOffer.status === "ISSUED"
+        && sameRef(linkedOffer.application, existingApp._id)
+        && sameRef(linkedOffer.student, initiatingUser._id)
+        && sameRef(existingApp.student, initiatingUser._id)
+        && sameRef(linkedOffer.job, existingApp.job)
+        && sameRef(linkedOffer.company, existingApp.company)
+        && sameRef(linkedOffer.institute, existingApp.institute)
+        && sameRef(existingApp.job?.company, existingApp.company)
+        && sameRef(existingApp.studentProfile?.user, initiatingUser._id)
+        && (!existingApp.student?.institute || !existingApp.institute || sameRef(existingApp.student.institute, existingApp.institute))
+        && (!existingApp.studentProfile?.institute || !existingApp.institute || sameRef(existingApp.studentProfile.institute, existingApp.institute))
+        && req.body.offerOperationId === `offer_${linkedOffer._id}_OfferDeclined`;
+      if (!referencesMatch) {
+        return res.status(409).json({
+          success: false,
+          message: "Offer ownership or application references could not be verified.",
+        });
+      }
+    }
+
+    const claimExpiry = existingApp.offerCreationClaim?.expiresAt;
+    if (existingApp.offerCreationClaim?.claimId && claimExpiry && claimExpiry > new Date()) {
+      return res.status(409).json({
+        success: false,
+        message: "An offer is currently being created for this application. Retry the resolution after that operation completes.",
       });
     }
 
@@ -1274,11 +1354,29 @@ const resolveApplicationOffer = async (req, res, next) => {
     // Generates a unique operation ID and atomically transitions status ONLY IF current persisted status is 'Selected'
     const operationId = `res_${Date.now()}_${crypto.randomUUID()}`;
     const now = new Date();
+    const allowedCreationClaims = [
+      { "offerCreationClaim.claimId": null },
+      { offerCreationClaim: { $exists: false } },
+      { "offerCreationClaim.state": "CREATING", "offerCreationClaim.expiresAt": { $lte: now } },
+    ];
+    // An Offer-managed resolution may proceed through the persistent creation
+    // fence only when it matches the exact linked Offer already checked above.
+    if (linkedOffer && linkedOffer.resolutionState === "PENDING"
+      && linkedOffer.resolutionStatus === resolutionStatus
+      && linkedOffer.resolutionOperationId === req.body.offerOperationId) {
+      allowedCreationClaims.push({
+        "offerCreationClaim.state": "COMPLETED",
+        "offerCreationClaim.offerId": linkedOffer._id,
+      });
+    }
 
     const updatedApp = await Application.findOneAndUpdate(
       {
         _id: id,
         status: "Selected", // COMPARE condition: strictly Selected
+        $and: [
+          { $or: allowedCreationClaims },
+        ],
       },
       {
         $set: {
@@ -1349,6 +1447,13 @@ const resolveApplicationOffer = async (req, res, next) => {
   }
 };
 
+// Keep Express route handlers at arity three; a four-argument function is
+// interpreted as error middleware and would make the legacy route unmatched.
+const resolveApplicationOffer = (req, res, next) =>
+  resolveApplicationOfferImpl(req, res, next);
+const resolveApplicationOfferFromOffer = (req, res, next) =>
+  resolveApplicationOfferImpl(req, res, next, OFFER_RESOLUTION_CAPABILITY);
+
 module.exports = {
   applyToJob,
   getMyApplications,
@@ -1359,6 +1464,7 @@ module.exports = {
   updateApplicationStatus,
   withdrawApplication,
   resolveApplicationOffer,
+  resolveApplicationOfferFromOffer,
   resumePendingOfferResolutions,
   verifyApplicationAccess,
   getAuthoritativeInstituteId,

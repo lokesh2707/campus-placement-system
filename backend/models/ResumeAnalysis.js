@@ -101,4 +101,7 @@ const ResumeAnalysisSchema = new mongoose.Schema(
   }
 );
 
+ResumeAnalysisSchema.index({ user: 1, createdAt: -1 });
+ResumeAnalysisSchema.index({ studentProfile: 1, createdAt: -1 });
+
 module.exports = mongoose.model("ResumeAnalysis", ResumeAnalysisSchema);

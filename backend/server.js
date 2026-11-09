@@ -16,11 +16,16 @@ const analyticsRoutes = require("./routes/analytics.routes");
 const adminRoutes = require("./routes/admin.routes");
 const officerRoutes = require("./routes/officer.routes");
 const recruiterRoutes = require("./routes/recruiter.routes");
+const notificationRoutes = require("./routes/notification.routes");
+const attendanceRoutes = require("./routes/attendance.routes");
+const readinessRoutes = require("./routes/readiness.routes");
 const resumeBuilderRoutes = require("./routes/resumeBuilder.routes");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
 const AdminAuditLog = require("./models/AdminAuditLog");
+const Attendance = require("./models/Attendance");
 const { resumePendingOfferResolutions } = require("./utils/offerRecovery");
+const { reconcilePendingOfferResolutions } = require("./services/offerResolutionReconciliation");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,13 +47,16 @@ app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api/jobs", jobRoutes);
+app.use("/api", attendanceRoutes);
 app.use("/api/recommendations", recommendationRoutes);
+app.use("/api/readiness", readinessRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/officer", officerRoutes);
 app.use("/api/recruiter", recruiterRoutes);
 app.use("/api/resume-builder", resumeBuilderRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Fallback 404 handler for unknown routes
 app.use(notFound);
@@ -60,10 +68,31 @@ app.use(errorHandler);
 const startServer = async () => {
   await connectDB();
   await AdminAuditLog.ensureIndexesSafe();
+  await Attendance.createIndexes();
   await resumePendingOfferResolutions();
-  app.listen(PORT, () => {
+  // Complete Offer documents whose Application resolution was already durably
+  // recovered before a previous process stopped. This is a single startup pass,
+  // not a recurring worker.
+  await reconcilePendingOfferResolutions();
+  const { startNotificationWorker } = require("./services/notificationWorker");
+  const worker = startNotificationWorker();
+  const server = app.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
   });
+  let closing = false;
+  const shutdown = async () => {
+    if (closing) return;
+    closing = true;
+    await worker.stop();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
 };
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer };

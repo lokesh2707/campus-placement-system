@@ -12,7 +12,8 @@
     "bootstrap:admin": "node scripts/bootstrapAdmin.js",
     "create-officer": "node scripts/createOfficer.js",
     "migrate:phase2": "node scripts/migratePhase2.js",
-    "migrate:phase2:execute": "node scripts/migratePhase2.js --execute"
+    "migrate:phase2:execute": "node scripts/migratePhase2.js --execute",
+    "test": "node --test tests/*.test.js"
   },
   "keywords": [],
   "author": "",

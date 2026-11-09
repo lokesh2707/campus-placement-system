@@ -5,7 +5,7 @@ const StudentProfile = require("../models/StudentProfile");
 const Company = require("../models/Company");
 const AdminAuditLog = require("../models/AdminAuditLog");
 const User = require("../models/User");
-const { ROLES } = require("../constants/roles");
+const { ROLES, normalizeRole } = require("../constants/roles");
 
 /**
  * Safely extracts string ObjectId from entity reference or populated object.
@@ -46,31 +46,30 @@ const getAuthoritativeInstituteId = (application) => {
  * Never falls back to the student or recovery process executor.
  *
  * @param {ObjectId|string} resolvedBy
- * @param {ObjectId|string} applicationId
- * @returns {Promise<{ valid: boolean, actor?: Object, error?: string }>}
+ * @returns {Promise<{ valid: boolean, actor?: Object, category?: string }>}
  */
-const validateInitiatingActor = async (resolvedBy, applicationId) => {
+const validateInitiatingActor = async (resolvedBy, { resolutionStatus, application } = {}) => {
   const actorId = resolvedBy ? getEntityId(resolvedBy) : null;
   if (!actorId || !mongoose.Types.ObjectId.isValid(actorId)) {
-    const errorMsg = `Initiating actor is missing or invalid in offerResolution for application ${applicationId}`;
-    return { valid: false, error: errorMsg };
+    return { valid: false, category: "ACTOR_REFERENCE_INVALID" };
   }
 
   const actor = await User.findById(actorId).select("_id role isActive");
   if (!actor) {
-    const errorMsg = `Initiating actor ${actorId} not found in database for application ${applicationId}`;
-    return { valid: false, error: errorMsg };
+    return { valid: false, category: "ACTOR_NOT_FOUND" };
   }
 
   if (!actor.isActive) {
-    const errorMsg = `Initiating actor ${actorId} is inactive for application ${applicationId}`;
-    return { valid: false, error: errorMsg };
+    return { valid: false, category: "ACTOR_INACTIVE" };
   }
 
   const authorizedRoles = [ROLES.SUPER_ADMIN, ROLES.PLACEMENT_OFFICER, ROLES.RECRUITER];
-  if (!authorizedRoles.includes(actor.role)) {
-    const errorMsg = `Initiating actor ${actorId} has unauthorized role '${actor.role}' for application ${applicationId}`;
-    return { valid: false, error: errorMsg };
+  const actorRole = normalizeRole(actor.role);
+  const studentDeclineActor = actorRole === ROLES.STUDENT
+    && resolutionStatus === "Offer Declined"
+    && getEntityId(application?.student) === actorId;
+  if (!authorizedRoles.includes(actorRole) && !studentDeclineActor) {
+    return { valid: false, category: "ACTOR_ROLE_INVALID" };
   }
 
   return { valid: true, actor };
@@ -86,7 +85,7 @@ const validateInitiatingActor = async (resolvedBy, applicationId) => {
  * @param {Object} appDoc - The Application document containing offerResolution details
  * @returns {Promise<Object>} Execution result
  */
-const executeOfferResolutionSideEffects = async (appDoc) => {
+const executeOfferResolutionSideEffectsUnsafe = async (appDoc) => {
   const application = await Application.findById(appDoc._id)
     .populate("job")
     .populate("studentProfile")
@@ -104,17 +103,17 @@ const executeOfferResolutionSideEffects = async (appDoc) => {
   const jobId = application.job?._id || application.job;
 
   // Validate initiating actor BEFORE executing side effects or writing audit logs
-  const actorValidation = await validateInitiatingActor(resolvedBy, application._id);
+  const actorValidation = await validateInitiatingActor(resolvedBy, { resolutionStatus, application });
   if (!actorValidation.valid) {
     await Application.updateOne(
       { _id: application._id },
       {
         $set: {
-          "offerResolution.actorError": actorValidation.error,
+          "offerResolution.actorError": actorValidation.category,
         },
       }
     );
-    throw new Error(actorValidation.error);
+    throw new Error("Offer resolution actor validation failed.");
   }
 
   const actor = actorValidation.actor;
@@ -331,6 +330,17 @@ const executeOfferResolutionSideEffects = async (appDoc) => {
   };
 };
 
+// Keep exception text, database values, and identifiers out of API responses and
+// persisted recovery summaries. Detailed diagnostics belong in protected server
+// observability, which this service deliberately does not write to MongoDB.
+const executeOfferResolutionSideEffects = async (appDoc) => {
+  try {
+    return await executeOfferResolutionSideEffectsUnsafe(appDoc);
+  } catch (_) {
+    throw new Error("Offer resolution side effects failed.");
+  }
+};
+
 /**
  * Scans for any Application documents where offerResolution.durableState === 'PENDING'
  * (e.g. from an interrupted operation or server restart) and safely drives their side effects
@@ -358,7 +368,7 @@ const resumePendingOfferResolutions = async () => {
         applicationId: app._id.toString(),
         operationId: app.offerResolution?.operationId,
         status: "FAILED",
-        error: err.message,
+        category: "SIDE_EFFECT_FAILED",
         success: false,
       });
     }
@@ -371,9 +381,20 @@ const resumePendingOfferResolutions = async () => {
   };
 };
 
+/** Resume only the durable resolution for a single application after a retry. */
+const resumePendingOfferResolutionForApplication = async (applicationId) => {
+  const app = await Application.findById(applicationId);
+  if (!app || app.offerResolution?.durableState !== "PENDING") {
+    return { resumed: false, application: app };
+  }
+  const result = await executeOfferResolutionSideEffects(app);
+  return { resumed: true, ...result };
+};
+
 module.exports = {
   executeOfferResolutionSideEffects,
   resumePendingOfferResolutions,
+  resumePendingOfferResolutionForApplication,
   validateInitiatingActor,
   getAuthoritativeInstituteId,
   getEntityId,

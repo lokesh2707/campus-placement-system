@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const ResumeAnalysis = require("../models/ResumeAnalysis");
 const StudentProfile = require("../models/StudentProfile");
+const { syncResumeAnalysisIntoInventory, applyResumeSkillReview } = require("../services/readinessService");
 
 /**
  * @desc   Upload and parse a PDF, DOC, or DOCX resume
@@ -163,19 +164,9 @@ const uploadResume = async (req, res, next) => {
       status: "parsed",
     });
 
-    // Merge newly extracted skills into StudentProfile without duplicates.
-    // Do NOT overwrite verified academic fields (CGPA, department, batch, roll)
-    // or student-entered projects/experience/certifications with uncertain extract.
-    if (parseData.skills && parseData.skills.length > 0) {
-      const existingSkills = new Set(studentProfile.skills);
-      parseData.skills.forEach((s) => existingSkills.add(s));
-      studentProfile.skills = Array.from(existingSkills);
-    }
-    studentProfile.resumeUrl = req.file.filename;
-    studentProfile.resumeFileName = req.file.originalname;
-    studentProfile.resumeFileSize = req.file.size;
-    studentProfile.resumeUpdatedAt = new Date();
-    await studentProfile.save();
+    // Persist source-linked skill evidence after the analysis itself exists.
+    // A failed parser call never reaches this synchronization step.
+    await syncResumeAnalysisIntoInventory(studentProfile._id, analysis);
 
     const safeAnalysis = analysis.toObject();
     delete safeAnalysis.extractedText;
@@ -239,6 +230,12 @@ const reviewExtractedSkills = async (req, res, next) => {
         message: "Skills must be provided as an array of strings",
       });
     }
+    if (skills.length > 80 || skills.some((skill) => typeof skill !== "string" || skill.trim().length > 60)) {
+      return res.status(400).json({
+        success: false,
+        message: "Skills must be strings of at most 60 characters (maximum 80 entries).",
+      });
+    }
 
     const analysis = await ResumeAnalysis.findOne({
       _id: req.params.id,
@@ -252,20 +249,28 @@ const reviewExtractedSkills = async (req, res, next) => {
       });
     }
 
-    analysis.extractedSkills = skills.map((s) => s.trim()).filter((s) => s.length > 0);
+    const selectedSkills = skills.map((s) => s.trim()).filter((s) => s.length > 0);
     analysis.status = "reviewed";
     await analysis.save();
 
-    // Also update student profile skills
+    // Keep the original parser output immutable. Store student review status in
+    // source-linked inventory records and keep the legacy compatibility field.
     await StudentProfile.findOneAndUpdate(
       { user: req.user._id },
-      { $set: { skills: analysis.extractedSkills } }
+      { $set: { skills: selectedSkills } }
     );
+    const profile = await StudentProfile.findOne({ user: req.user._id }).select("_id").lean();
+    if (!profile) return res.status(404).json({ success: false, message: "Student profile not found." });
+    await applyResumeSkillReview(profile._id, analysis, selectedSkills);
+
+    const safeAnalysis = analysis.toObject();
+    delete safeAnalysis.extractedText;
+    delete safeAnalysis.filePath;
 
     res.status(200).json({
       success: true,
       message: "Extracted skills updated and reviewed successfully",
-      analysis,
+      analysis: safeAnalysis,
     });
   } catch (error) {
     next(error);
@@ -335,6 +340,7 @@ const confirmStructuredFields = async (req, res, next) => {
       "certifications",
     ]);
     const ACTIONS = new Set(["confirm", "reject", "edit"]);
+    let reviewedSkillSelection = null;
 
     for (const raw of decisions) {
       const category = String(raw.category || "").toLowerCase();
@@ -374,10 +380,9 @@ const confirmStructuredFields = async (req, res, next) => {
 
         if (action === "reject") {
           // Reject extracted set only — do not wipe student-entered skills
-          analysis.extractedSkills = [];
           if (structured.skills) structured.skills = [];
         } else if (action === "edit" || action === "confirm") {
-          analysis.extractedSkills = skills;
+          reviewedSkillSelection = skills;
           // Merge into profile; never drop existing verified skills unless edit replaces via replaceAll
           if (raw.replaceAll === true && action === "edit") {
             profile.skills = skills;
@@ -402,6 +407,7 @@ const confirmStructuredFields = async (req, res, next) => {
           }
         }
         storedValue = skills;
+        if (action === "reject") reviewedSkillSelection = [];
         confidenceAtDecision = "n/a";
       } else if (category === "education") {
         // Never overwrite CGPA / batch / department / backlogs from extraction.
@@ -590,6 +596,9 @@ const confirmStructuredFields = async (req, res, next) => {
     analysis.markModified("fieldConfirmations");
     await analysis.save();
     await profile.save();
+    if (reviewedSkillSelection !== null) {
+      await applyResumeSkillReview(profile._id, analysis, reviewedSkillSelection);
+    }
 
     const safe = analysis.toObject();
     delete safe.extractedText;
